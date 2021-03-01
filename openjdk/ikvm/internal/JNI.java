@@ -23,6 +23,7 @@
 */
 
 package ikvm.internal;
+import java.io.IOException;
 
 @ikvm.lang.Internal
 public final class JNI
@@ -40,10 +41,20 @@ public final class JNI
     {
         return System.currentTimeMillis();
     }
+	
+	public static long JVM_CurrentTimeMillis()
+    {
+        return System.currentTimeMillis();
+    }
 
     public static void JNU_ThrowNullPointerException(JNIEnv env, String message)
     {
-        env.Throw(new NullPointerException(message));
+        JNIEnv.myCuteLookingUnsafe.throwException(new NullPointerException(message));
+    }
+	
+	public static void JNU_ThrowNullPointerException(String message)
+    {
+        JNIEnv.myCuteLookingUnsafe.throwException(new NullPointerException(message));
     }
 
     public static void JNU_ThrowByName(JNIEnv env, String exceptionClass, String message)
@@ -76,9 +87,69 @@ public final class JNI
             }
         }
     }
+	public static Throwable JNU_CreateThrowableByName(String exceptionClass, String message)
+    {
+        if (exceptionClass.equals("java.net.SocketException"))
+        {
+            return new java.net.SocketException(message);
+        }
+        else if (exceptionClass.equals("java.net.SocketTimeoutException"))
+        {
+            return new java.net.SocketTimeoutException(message);
+        }
+        else if (exceptionClass.equals("java.net.PortUnreachableException"))
+        {
+            return new java.net.PortUnreachableException(message);
+        }
+        else if (exceptionClass.equals("java.io.InterruptedIOException"))
+        {
+            return new java.io.InterruptedIOException(message);
+        }
+        else
+        {
+			Throwable tnt;
+            try
+            {
+                tnt = (Throwable)Class.forName(exceptionClass).getConstructor(String.class).newInstance(message);
+            }
+            catch (Throwable x)
+            {
+                tnt = x;
+            }
+			return tnt;
+        }
+    }
+	public static void IKVM_ThrowNewExceptionByName(String exceptionClass, String message) throws IOException
+    {
+        if (exceptionClass.equals("java.net.SocketException"))
+        {
+            throw new java.net.SocketException(message);
+        }
+        else if (exceptionClass.equals("java.net.SocketTimeoutException"))
+        {
+            throw new java.net.SocketTimeoutException(message);
+        }
+        else if (exceptionClass.equals("java.net.PortUnreachableException"))
+        {
+            throw new java.net.PortUnreachableException(message);
+        }
+        else if (exceptionClass.equals("java.io.InterruptedIOException"))
+        {
+            throw new java.io.InterruptedIOException(message);
+        }
+        else
+        {
+			try{
+				JNIEnv.ThrowNewStatic(Class.forName(exceptionClass), message);
+			} catch(ClassNotFoundException dynamite){
+				JNIEnv.myCuteLookingUnsafe.throwException(dynamite);
+			}
+        }
+    }
 
     public static final class JNIEnv
     {
+		public static sun.misc.Unsafe myCuteLookingUnsafe = sun.misc.Unsafe.getUnsafe();
         private Throwable pendingException;
 
         public void Throw(Throwable t)
@@ -92,10 +163,21 @@ public final class JNI
             {
                 pendingException = (Throwable)c.getConstructor(String.class).newInstance(msg);
             }
-            catch (Exception x)
+            catch (Throwable x)
             {
                 pendingException = x;
             }
+        }
+		
+		public static void ThrowNewStatic(Class c, String msg)
+        {
+			Throwable tnt;
+			try{
+				tnt = (Throwable)c.getConstructor(String.class).newInstance(msg);
+			} catch(Throwable dynamite){
+				tnt = dynamite;
+			}
+            myCuteLookingUnsafe.throwException(tnt);
         }
 
         public Throwable ExceptionOccurred()
@@ -107,7 +189,7 @@ public final class JNI
         {
             if (pendingException != null)
             {
-                sun.misc.Unsafe.getUnsafe().throwException(pendingException);
+                myCuteLookingUnsafe.throwException(pendingException);
             }
         }
     }

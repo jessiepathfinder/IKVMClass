@@ -38,7 +38,7 @@ public interface IkvmToolkit{
 		public static IkvmToolkit get()
 		{
 			Toolkit tk = Toolkit.getDefaultToolkit();
-			if (tk instanceof HeadlessToolkit)
+			while (tk instanceof HeadlessToolkit)
 			{
 				tk = ((HeadlessToolkit)tk).getUnderlyingToolkit();
 			}

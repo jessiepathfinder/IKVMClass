@@ -25,6 +25,7 @@
 
 package java.lang.ref;
 
+//Jessie Lesbian's weakened soft reference
 
 /**
  * Soft reference objects, which are cleared at the discretion of the garbage
@@ -64,70 +65,25 @@ package java.lang.ref;
 public class SoftReference<T> extends Reference<T> {
 
     /**
-     * Timestamp clock, updated by the garbage collector
-     */
-    static private long clock;
-
-    /**
-     * Timestamp updated by each invocation of the get method.  The VM may use
-     * this field when selecting soft references to be cleared, but it is not
-     * required to do so.
-     */
-    private long timestamp;
-
-    /**
-     * Creates a new soft reference that refers to the given object.  The new
+     * Creates a new weak reference that refers to the given object.  The new
      * reference is not registered with any queue.
      *
-     * @param referent object the new soft reference will refer to
+     * @param referent object the new weak reference will refer to
      */
     public SoftReference(T referent) {
-        this(referent, null);
+        super(referent);
     }
 
     /**
-     * Creates a new soft reference that refers to the given object and is
+     * Creates a new weak reference that refers to the given object and is
      * registered with the given queue.
      *
-     * @param referent object the new soft reference will refer to
+     * @param referent object the new weak reference will refer to
      * @param q the queue with which the reference is to be registered,
      *          or <tt>null</tt> if registration is not required
-     *
      */
     public SoftReference(T referent, ReferenceQueue<? super T> q) {
         super(referent, q);
-        setStrongRef(referent);
     }
 
-    /**
-     * Returns this reference object's referent.  If this reference object has
-     * been cleared, either by the program or by the garbage collector, then
-     * this method returns <code>null</code>.
-     *
-     * @return   The object to which this reference refers, or
-     *           <code>null</code> if this reference object has been cleared
-     */
-    public T get() {
-        T o = strongRef;
-        if (o != null) {
-            return o;
-        }
-        o = super.get();
-        setStrongRef(o);
-        return o;
-    }
-
-    private void setStrongRef(T referent)
-    {
-        if (referent != null) {
-            strongRef = referent;
-            if (!(referent instanceof Class && noclassgc())) {
-                new Object() {
-                    protected void finalize() {
-                        strongRef = null;
-                    }
-                };
-            }
-        }
-    }
 }

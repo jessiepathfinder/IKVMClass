@@ -30,11 +30,11 @@
 @cli.System.Reflection.AssemblyTitleAttribute.Annotation("IKVM.NET OpenJDK Library for .NET")
 @cli.System.Reflection.AssemblyProductAttribute.Annotation("IKVM.NET")
 @cli.System.Reflection.AssemblyCompanyAttribute.Annotation("Jeroen Frijters")
-@cli.System.Reflection.AssemblyInformationalVersionAttribute.Annotation("@VERSION@")
+@cli.System.Reflection.AssemblyInformationalVersionAttribute.Annotation("8.6.8.0")
 
 @cli.System.Runtime.CompilerServices.InternalsVisibleToAttribute.Annotation.__Multiple({
-    @cli.System.Runtime.CompilerServices.InternalsVisibleToAttribute.Annotation("@RUNTIME@"),
-    @cli.System.Runtime.CompilerServices.InternalsVisibleToAttribute.Annotation("@AWTWINFORMS@")
+    @cli.System.Runtime.CompilerServices.InternalsVisibleToAttribute.Annotation("IKVM.Runtime"),
+    @cli.System.Runtime.CompilerServices.InternalsVisibleToAttribute.Annotation("IKVM.AWT.WinForms")
 })
 
 @cli.System.Security.AllowPartiallyTrustedCallersAttribute.Annotation

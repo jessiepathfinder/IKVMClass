@@ -684,7 +684,8 @@ public final class Class<T> implements java.io.Serializable,
     // cache the name to reduce the number of calls into the VM
     private transient String name;
     private native String getName0();
-
+	//IKVM.NET Enhanced Dynamic Class Loading
+	@ikvm.lang.Internal public transient ClassLoader actualClassLoader;
     /**
      * Returns the class loader for the class.  Some implementations may use
      * null to represent the bootstrap class loader. This method will return

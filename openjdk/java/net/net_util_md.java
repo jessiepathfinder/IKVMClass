@@ -650,6 +650,9 @@ final class net_util_md
      * structure for an IPv4 InetAddress.
     */
     static int NET_InetAddressToSockaddr(JNIEnv env, InetAddress iaObj, int port, SOCKETADDRESS him, boolean v4MappedAddress) {
+        return NET_InetAddressToSockaddr(iaObj, port, him, v4MappedAddress);
+    }
+	static int NET_InetAddressToSockaddr(InetAddress iaObj, int port, SOCKETADDRESS him, boolean v4MappedAddress) {
         if (iaObj.holder().family == InetAddress.IPv4) {
             him.set(new IPEndPoint(new IPAddress(htonl(iaObj.holder().address) & 0xFFFFFFFFL), port));
             return 0;
@@ -802,6 +805,10 @@ final class net_util_md
     static void NET_ThrowByNameWithLastError(JNIEnv env, String exceptionClass, String message) {
         JNU_ThrowByName(env, exceptionClass, "errno: " + WSAGetLastError() + ", error: " + message + "\n");
     }
+	
+	static void NET_ThrowByNameWithLastError(String exceptionClass, String message) {
+        JNIEnv.myCuteLookingUnsafe.throwException(JNU_CreateThrowableByName(exceptionClass, "errno: " + WSAGetLastError() + ", error: " + message + "\n"));
+    }
 
     static boolean IN_MULTICAST(int ipv4address) {
         return ((ipv4address >> 24) & 0xf0) == 0xe0;
@@ -884,6 +891,14 @@ final class net_util_md
     }
 
     static int getInetAddress_family(JNIEnv env, InetAddress iaObj) {
+        return iaObj.holder().family;
+    }
+	
+	static int getInetAddress_addr(InetAddress iaObj) {
+        return iaObj.holder().address;
+    }
+
+    static int getInetAddress_family(InetAddress iaObj) {
         return iaObj.holder().family;
     }
 }

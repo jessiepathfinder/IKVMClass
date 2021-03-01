@@ -248,6 +248,9 @@ public abstract class ClassLoader {
     // The classes loaded by this class loader. The only purpose of this table
     // is to keep the classes from being GC'ed until the loader is GC'ed.
     private final Vector<Class<?>> classes = new Vector<>();
+	
+	//IKVM.NET Enhanced Dynamic Class Loading
+	@ikvm.lang.Internal public transient final ConcurrentHashMap<String, Class<?>> loadedClassesMap = new ConcurrentHashMap<String, Class<?>>();
 
     // The "default" domain. Set as the default ProtectionDomain on newly
     // created classes.
@@ -259,7 +262,7 @@ public abstract class ClassLoader {
     private final Set<ProtectionDomain> domains;
 
     // Invoked by the VM to record every loaded class with this loader.
-    void addClass(Class<?> c) {
+    @ikvm.lang.Internal public void addClass(Class<?> c) {
         classes.addElement(c);
     }
 
