@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -438,7 +438,7 @@ public class BasicRadioButtonUI extends BasicToggleButtonUI
         // to the button group or not
         Component getFocusTransferBaseComponent(boolean next){
             Component focusBaseComp = activeBtn;
-            Window container = SwingUtilities.getWindowAncestor(activeBtn);
+            Container container = focusBaseComp.getFocusCycleRootAncestor();
             if (container != null) {
                 FocusTraversalPolicy policy = container.getFocusTraversalPolicy();
                 Component comp = next ? policy.getComponentAfter(container, activeBtn)
@@ -531,8 +531,13 @@ public class BasicRadioButtonUI extends BasicToggleButtonUI
                 }
                 if (newSelectedBtn != null &&
                     (newSelectedBtn != activeBtn)) {
+                    ButtonModel btnModel = newSelectedBtn.getModel();
+                    btnModel.setPressed(true);
+                    btnModel.setArmed(true);
                     newSelectedBtn.requestFocusInWindow();
                     newSelectedBtn.setSelected(true);
+                    btnModel.setPressed(false);
+                    btnModel.setArmed(false);
                 }
             }
         }

@@ -39,7 +39,7 @@ import java.math.BigInteger;
 /**
  * Implements the ASN.1 KRB_KDC_REQ type.
  *
- * <xmp>
+ * <pre>{@code
  * KDC-REQ              ::= SEQUENCE {
  *      -- NOTE: first tag is [1], not [0]
  *      pvno            [1] INTEGER (5) ,
@@ -48,7 +48,7 @@ import java.math.BigInteger;
  *                            -- NOTE: not empty --,
  *      req-body        [4] KDC-REQ-BODY
  * }
- * </xmp>
+ * }</pre>
  *
  * <p>
  * This definition reflects the Network Working Group RFC 4120
@@ -59,9 +59,9 @@ import java.math.BigInteger;
 public class KDCReq {
 
     public KDCReqBody reqBody;
+    public PAData[] pAData = null; //optional
     private int pvno;
     private int msgType;
-    private PAData[] pAData = null; //optional
 
     public KDCReq(PAData[] new_pAData, KDCReqBody new_reqBody,
             int req_type) throws IOException {
@@ -95,7 +95,7 @@ public class KDCReq {
      * @param req_type a encoded asn1 type value.
      * @exception Asn1Exception if an error occurs while decoding an ASN1 encoded data.
      * @exception IOException if an I/O error occurs while reading encoded data.
-     * @exceptoin KrbErrException
+     * @exception KrbErrException
      */
     public KDCReq(DerValue der, int req_type) throws Asn1Exception,
             IOException, KrbException {
@@ -144,23 +144,7 @@ public class KDCReq {
         } else {
             throw new Asn1Exception(Krb5.ASN1_BAD_ID);
         }
-        if ((der.getData().peekByte() & 0x1F) == 0x03) {
-            subDer = der.getData().getDerValue();
-            DerValue subsubDer = subDer.getData().getDerValue();
-            if (subsubDer.getTag() != DerValue.tag_SequenceOf) {
-                throw new Asn1Exception(Krb5.ASN1_BAD_ID);
-            }
-            Vector<PAData> v = new Vector<>();
-            while (subsubDer.getData().available() > 0) {
-                v.addElement(new PAData(subsubDer.getData().getDerValue()));
-            }
-            if (v.size() > 0) {
-                pAData = new PAData[v.size()];
-                v.copyInto(pAData);
-            }
-        } else {
-            pAData = null;
-        }
+        pAData = PAData.parseSequence(der.getData(), (byte) 0x03, true);
         subDer = der.getData().getDerValue();
         if ((subDer.getTag() & 0x01F) == 0x04) {
             DerValue subsubDer = subDer.getData().getDerValue();

@@ -21,10 +21,10 @@
  * under the License.
  */
 /*
- * Copyright (c) 2005, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2019, Oracle and/or its affiliates. All rights reserved.
  */
 /*
- * $Id: ApacheTransform.java 1333869 2012-05-04 10:42:44Z coheigea $
+ * $Id: ApacheTransform.java 1854026 2019-02-21 09:30:01Z coheigea $
  */
 package org.jcp.xml.dsig.internal.dom;
 
@@ -32,13 +32,12 @@ import java.io.OutputStream;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.spec.AlgorithmParameterSpec;
 import java.util.Set;
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
-
 import com.sun.org.apache.xml.internal.security.signature.XMLSignatureInput;
 import com.sun.org.apache.xml.internal.security.transforms.Transform;
-import com.sun.org.apache.xml.internal.security.transforms.Transforms;
 
 import javax.xml.crypto.*;
 import javax.xml.crypto.dom.DOMCryptoContext;
@@ -49,8 +48,6 @@ import javax.xml.crypto.dsig.spec.TransformParameterSpec;
  * This is a wrapper/glue class which invokes the Apache XML-Security
  * Transform.
  *
- * @author Sean Mullan
- * @author Erwin van der Koogh
  */
 public abstract class ApacheTransform extends TransformService {
 
@@ -58,13 +55,14 @@ public abstract class ApacheTransform extends TransformService {
         com.sun.org.apache.xml.internal.security.Init.init();
     }
 
-    private static java.util.logging.Logger log =
-        java.util.logging.Logger.getLogger("org.jcp.xml.dsig.internal.dom");
+    private static final com.sun.org.slf4j.internal.Logger LOG =
+        com.sun.org.slf4j.internal.LoggerFactory.getLogger(ApacheTransform.class);
     private Transform apacheTransform;
     protected Document ownerDoc;
     protected Element transformElem;
     protected TransformParameterSpec params;
 
+    @Override
     public final AlgorithmParameterSpec getParameterSpec() {
         return params;
     }
@@ -111,7 +109,7 @@ public abstract class ApacheTransform extends TransformService {
         if (data == null) {
             throw new NullPointerException("data must not be null");
         }
-        return transformIt(data, xc, (OutputStream)null);
+        return transformIt(data, xc, null);
     }
 
     public Data transform(Data data, XMLCryptoContext xc, OutputStream os)
@@ -138,10 +136,9 @@ public abstract class ApacheTransform extends TransformService {
                 apacheTransform =
                     new Transform(ownerDoc, getAlgorithm(), transformElem.getChildNodes());
                 apacheTransform.setElement(transformElem, xc.getBaseURI());
-                if (log.isLoggable(java.util.logging.Level.FINE)) {
-                    log.log(java.util.logging.Level.FINE, "Created transform for algorithm: " +
-                            getAlgorithm());
-                }
+                boolean secVal = Utils.secureValidation(xc);
+                apacheTransform.setSecureValidation(secVal);
+                LOG.debug("Created transform for algorithm: {}", getAlgorithm());
             } catch (Exception ex) {
                 throw new TransformException("Couldn't find Transform for: " +
                                              getAlgorithm(), ex);
@@ -150,7 +147,7 @@ public abstract class ApacheTransform extends TransformService {
 
         if (Utils.secureValidation(xc)) {
             String algorithm = getAlgorithm();
-            if (Transforms.TRANSFORM_XSLT.equals(algorithm)) {
+            if (Policy.restrictAlg(algorithm)) {
                 throw new TransformException(
                     "Transform " + algorithm + " is forbidden when secure validation is enabled"
                 );
@@ -159,18 +156,12 @@ public abstract class ApacheTransform extends TransformService {
 
         XMLSignatureInput in;
         if (data instanceof ApacheData) {
-            if (log.isLoggable(java.util.logging.Level.FINE)) {
-                log.log(java.util.logging.Level.FINE, "ApacheData = true");
-            }
+            LOG.debug("ApacheData = true");
             in = ((ApacheData)data).getXMLSignatureInput();
         } else if (data instanceof NodeSetData) {
-            if (log.isLoggable(java.util.logging.Level.FINE)) {
-                log.log(java.util.logging.Level.FINE, "isNodeSet() = true");
-            }
+            LOG.debug("isNodeSet() = true");
             if (data instanceof DOMSubTreeData) {
-                if (log.isLoggable(java.util.logging.Level.FINE)) {
-                    log.log(java.util.logging.Level.FINE, "DOMSubTreeData = true");
-                }
+                LOG.debug("DOMSubTreeData = true");
                 DOMSubTreeData subTree = (DOMSubTreeData)data;
                 in = new XMLSignatureInput(subTree.getRoot());
                 in.setExcludeComments(subTree.excludeComments());
@@ -181,9 +172,7 @@ public abstract class ApacheTransform extends TransformService {
                 in = new XMLSignatureInput(nodeSet);
             }
         } else {
-            if (log.isLoggable(java.util.logging.Level.FINE)) {
-                log.log(java.util.logging.Level.FINE, "isNodeSet() = false");
-            }
+            LOG.debug("isNodeSet() = false");
             try {
                 in = new XMLSignatureInput
                     (((OctetStreamData)data).getOctetStream());
@@ -191,6 +180,8 @@ public abstract class ApacheTransform extends TransformService {
                 throw new TransformException(ex);
             }
         }
+        boolean secVal = Utils.secureValidation(xc);
+        in.setSecureValidation(secVal);
 
         try {
             if (os != null) {

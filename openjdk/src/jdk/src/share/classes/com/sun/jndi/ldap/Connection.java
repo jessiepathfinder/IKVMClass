@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,26 +27,25 @@ package com.sun.jndi.ldap;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.InterruptedIOException;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.InputStream;
-import java.net.Socket;
-import javax.net.ssl.SSLSocket;
-
-import javax.naming.CommunicationException;
-import javax.naming.ServiceUnavailableException;
-import javax.naming.NamingException;
-import javax.naming.InterruptedNamingException;
-
-import javax.naming.ldap.Control;
-
-import java.lang.reflect.Method;
+import java.io.InterruptedIOException;
+import java.io.OutputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.net.Socket;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.Arrays;
-import sun.misc.IOUtils;
-//import javax.net.SocketFactory;
+
+import javax.naming.CommunicationException;
+import javax.naming.InterruptedNamingException;
+import javax.naming.NamingException;
+import javax.naming.ServiceUnavailableException;
+import javax.naming.ldap.Control;
+import javax.net.ssl.SSLParameters;
+import javax.net.ssl.SSLSocket;
 
 /**
   * A thread that creates a connection to an LDAP server.
@@ -160,6 +159,24 @@ public final class Connection implements Runnable {
     int readTimeout;
     int connectTimeout;
 
+    // Is connection upgraded to SSL via STARTTLS extended operation
+    private volatile boolean isUpgradedToStartTls;
+
+    // Lock to maintain isUpgradedToStartTls state
+    final Object startTlsLock = new Object();
+
+    private static final boolean IS_HOSTNAME_VERIFICATION_DISABLED
+            = hostnameVerificationDisabledValue();
+
+    private static boolean hostnameVerificationDisabledValue() {
+        PrivilegedAction<String> act = () -> System.getProperty(
+                "com.sun.jndi.ldap.object.disableEndpointIdentification");
+        String prop = AccessController.doPrivileged(act);
+        if (prop == null) {
+            return false;
+        }
+        return prop.isEmpty() ? true : Boolean.parseBoolean(prop);
+    }
     // true means v3; false means v2
     // Called in LdapClient.authenticate() (which is synchronized)
     // when connection is "quiet" and not shared; no need to synchronize
@@ -368,15 +385,20 @@ public final class Connection implements Runnable {
         // the SSL handshake following socket connection as part of the timeout.
         // So explicitly set a socket read timeout, trigger the SSL handshake,
         // then reset the timeout.
-        if (connectTimeout > 0 && socket instanceof SSLSocket) {
+        if (socket instanceof SSLSocket) {
             SSLSocket sslSocket = (SSLSocket) socket;
-            int socketTimeout = sslSocket.getSoTimeout();
-
-            sslSocket.setSoTimeout(connectTimeout); // reuse full timeout value
-            sslSocket.startHandshake();
-            sslSocket.setSoTimeout(socketTimeout);
+            if (!IS_HOSTNAME_VERIFICATION_DISABLED) {
+                SSLParameters param = sslSocket.getSSLParameters();
+                param.setEndpointIdentificationAlgorithm("LDAPS");
+                sslSocket.setSSLParameters(param);
+            }
+            if (connectTimeout > 0) {
+                int socketTimeout = sslSocket.getSoTimeout();
+                sslSocket.setSoTimeout(connectTimeout); // reuse full timeout value
+                sslSocket.startHandshake();
+                sslSocket.setSoTimeout(socketTimeout);
+            }
         }
-
         return socket;
     }
 
@@ -436,55 +458,40 @@ public final class Connection implements Runnable {
     /**
      * Reads a reply; waits until one is ready.
      */
-    BerDecoder readReply(LdapRequest ldr)
-            throws IOException, NamingException {
+    BerDecoder readReply(LdapRequest ldr) throws IOException, NamingException {
         BerDecoder rber;
-        boolean waited = false;
 
-        while (((rber = ldr.getReplyBer()) == null) && !waited) {
-            try {
-                // If socket closed, don't even try
-                synchronized (this) {
-                    if (sock == null) {
-                        throw new ServiceUnavailableException(host + ":" + port +
-                            "; socket closed");
-                    }
-                }
-                synchronized (ldr) {
-                    // check if condition has changed since our last check
-                    rber = ldr.getReplyBer();
-                    if (rber == null) {
-                        if (readTimeout > 0) {  // Socket read timeout is specified
-
-                            // will be woken up before readTimeout only if reply is
-                            // available
-                            ldr.wait(readTimeout);
-                            waited = true;
-                        } else {
-                            // no timeout is set so we wait infinitely until
-                            // a response is received
-                            // https://docs.oracle.com/javase/8/docs/technotes/guides/jndi/jndi-ldap.html#PROP
-                            ldr.wait();
-                        }
-                    } else {
-                        break;
-                    }
-                }
-            } catch (InterruptedException ex) {
-                throw new InterruptedNamingException(
-                    "Interrupted during LDAP operation");
-            }
+        NamingException namingException = null;
+        try {
+            // if no timeout is set so we wait infinitely until
+            // a response is received OR until the connection is closed or cancelled
+            // http://docs.oracle.com/javase/8/docs/technotes/guides/jndi/jndi-ldap.html#PROP
+            rber = ldr.getReplyBer(readTimeout);
+        } catch (InterruptedException ex) {
+            throw new InterruptedNamingException(
+                "Interrupted during LDAP operation");
+        } catch (CommunicationException ce) {
+            // Re-throw
+            throw ce;
+        } catch (NamingException ne) {
+            // Connection is timed out OR closed/cancelled
+            namingException = ne;
+            rber = null;
         }
 
-        if ((rber == null) && waited) {
+        if (rber == null) {
             abandonRequest(ldr, null);
-            throw new NamingException("LDAP response read timed out, timeout used:"
-                            + readTimeout + "ms." );
-
+        }
+        // namingException can be not null in the following cases:
+        //  a) The response is timed-out
+        //  b) LDAP request connection has been closed or cancelled
+        // The exception message is initialized in LdapRequest::getReplyBer
+        if (namingException != null) {
+            // Re-throw NamingException after all cleanups are done
+            throw namingException;
         }
         return rber;
     }
-
 
     ////////////////////////////////////////////////////////////////////////////
     //
@@ -679,14 +686,11 @@ public final class Connection implements Runnable {
             if (nparent) {
                 LdapRequest ldr = pendingRequests;
                 while (ldr != null) {
-
-                    synchronized (ldr) {
-                        ldr.notify();
+                    ldr.close();
                         ldr = ldr.next;
                     }
                 }
             }
-        }
         if (nparent) {
             parent.processConnectionClosure();
         }
@@ -715,6 +719,23 @@ public final class Connection implements Runnable {
 
         // Replace stream
         outStream = newOut;
+    }
+
+    /*
+     * Replace streams and set isUpdradedToStartTls flag to the provided value
+     */
+    synchronized public void replaceStreams(InputStream newIn, OutputStream newOut, boolean isStartTls) {
+        synchronized (startTlsLock) {
+            replaceStreams(newIn, newOut);
+            isUpgradedToStartTls = isStartTls;
+        }
+    }
+
+    /*
+     * Returns true if connection was upgraded to SSL with STARTTLS extended operation
+     */
+    public boolean isUpgradedToStartTls() {
+        return isUpgradedToStartTls;
     }
 
     /**
@@ -774,7 +795,7 @@ public final class Connection implements Runnable {
      * the safest thing to do is to shut it down.
      */
 
-    private Object pauseLock = new Object();  // lock for reader to wait on while paused
+    private final Object pauseLock = new Object();  // lock for reader to wait on while paused
     private boolean paused = false;           // paused state of reader
 
     /*
@@ -871,6 +892,11 @@ public final class Connection implements Runnable {
                     // is equal to & 0x80 (i.e. length byte with high bit off).
                     if ((seqlen & 0x80) == 0x80) {
                         seqlenlen = seqlen & 0x7f;  // number of length bytes
+                        // Check the length of length field, since seqlen is int
+                        // the number of bytes can't be greater than 4
+                        if (seqlenlen > 4) {
+                            throw new IOException("Length coded with too many bytes: " + seqlenlen);
+                        }
 
                         bytesread = 0;
                         eos = false;
@@ -898,20 +924,18 @@ public final class Connection implements Runnable {
                         offset += bytesread;
                     }
 
+                    if (seqlenlen > bytesread) {
+                        throw new IOException("Unexpected EOF while reading length");
+                    }
+
+                    if (seqlen < 0) {
+                        throw new IOException("Length too big: " + (((long) seqlen) & 0xFFFFFFFFL));
+                    }
                     // read in seqlen bytes
-                    byte[] left = IOUtils.readFully(in, seqlen, false);
+                    byte[] left = readFully(in, seqlen);
                     inbuf = Arrays.copyOf(inbuf, offset + left.length);
                     System.arraycopy(left, 0, inbuf, offset, left.length);
                     offset += left.length;
-/*
-if (dump > 0) {
-System.err.println("seqlen: " + seqlen);
-System.err.println("bufsize: " + offset);
-System.err.println("bytesleft: " + bytesleft);
-System.err.println("bytesread: " + bytesread);
-}
-*/
-
 
                     try {
                         retBer = new BerDecoder(inbuf, 0, offset);
@@ -994,36 +1018,29 @@ System.err.println("bytesread: " + bytesread);
         }
     }
 
-
-    // This code must be uncommented to run the LdapAbandonTest.
-    /*public void sendSearchReqs(String dn, int numReqs) {
-        int i;
-        String attrs[] = null;
-        for(i = 1; i <= numReqs; i++) {
-            BerEncoder ber = new BerEncoder(2048);
-
-            try {
-            ber.beginSeq(Ber.ASN_SEQUENCE | Ber.ASN_CONSTRUCTOR);
-                ber.encodeInt(i);
-                ber.beginSeq(LdapClient.LDAP_REQ_SEARCH);
-                    ber.encodeString(dn == null ? "" : dn);
-                    ber.encodeInt(0, LdapClient.LBER_ENUMERATED);
-                    ber.encodeInt(3, LdapClient.LBER_ENUMERATED);
-                    ber.encodeInt(0);
-                    ber.encodeInt(0);
-                    ber.encodeBoolean(true);
-                    LdapClient.encodeFilter(ber, "");
-                    ber.beginSeq(Ber.ASN_SEQUENCE | Ber.ASN_CONSTRUCTOR);
-                        ber.encodeStringArray(attrs);
-                    ber.endSeq();
-                ber.endSeq();
-            ber.endSeq();
-            writeRequest(ber, i);
-            //System.err.println("wrote request " + i);
-            } catch (Exception ex) {
-            //System.err.println("ldap.search: Caught " + ex + " building req");
+    private static byte[] readFully(InputStream is, int length)
+        throws IOException
+    {
+        byte[] buf = new byte[Math.min(length, 8192)];
+        int nread = 0;
+        while (nread < length) {
+            int bytesToRead;
+            if (nread >= buf.length) {  // need to allocate a larger buffer
+                bytesToRead = Math.min(length - nread, buf.length + 8192);
+                if (buf.length < nread + bytesToRead) {
+                    buf = Arrays.copyOf(buf, nread + bytesToRead);
+                }
+            } else {
+                bytesToRead = buf.length - nread;
             }
-
+            int count = is.read(buf, nread, bytesToRead);
+            if (count < 0) {
+                if (buf.length != nread)
+                    buf = Arrays.copyOf(buf, nread);
+                break;
+            }
+            nread += count;
         }
-    } */
+        return buf;
+    }
 }

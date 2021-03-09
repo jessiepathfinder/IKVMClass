@@ -245,7 +245,7 @@ public final class FileDescriptor {
         {
             desc.stream = getStandardStream(fd);
         }
-        catch (cli.System.MissingMethodException _)
+        catch (cli.System.MissingMethodException throwaway)
         {
             desc.stream = cli.System.IO.Stream.Null;
         }
@@ -463,7 +463,7 @@ public final class FileDescriptor {
         }
     }
 
-    long skip(long n) throws IOException
+    @ikvm.lang.Internal public long skip(long n) throws IOException
     {
         checkOpen();
         if (!stream.get_CanSeek())
@@ -642,7 +642,7 @@ public final class FileDescriptor {
         {
             throw new java.nio.channels.ClosedChannelException();
         }
-        catch (cli.System.ArgumentOutOfRangeException _)
+        catch (cli.System.ArgumentOutOfRangeException throwaway)
         {
             throw new IOException("Negative seek offset");
         }
@@ -755,7 +755,7 @@ public final class FileDescriptor {
             }
             throw java.net.SocketUtil.convertSocketExceptionToIOException(x);
         }
-        catch (cli.System.ObjectDisposedException _)
+        catch (cli.System.ObjectDisposedException throwaway)
         {
             throw new java.net.SocketException("Socket is closed");
         }

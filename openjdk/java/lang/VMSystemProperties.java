@@ -62,7 +62,7 @@ final class VMSystemProperties
                     libraryPath += cli.System.IO.Path.PathSeparator + cli.System.Environment.get_SystemDirectory();
                 }
             }
-            catch(cli.System.Security.SecurityException _)
+            catch(cli.System.Security.SecurityException throwaway)
             {
             }
             if(windir != null)
@@ -102,7 +102,7 @@ final class VMSystemProperties
                 libraryPath = new cli.System.IO.FileInfo(entryAsm.get_Location()).get_DirectoryName() + cli.System.IO.Path.PathSeparator + libraryPath;
             }
         }
-        catch(Throwable _)
+        catch(Throwable throwaway1)
         {
             // ignore
         }
@@ -138,7 +138,7 @@ final class VMSystemProperties
             if(false) throw new cli.System.Security.SecurityException();
             p.setProperty("java.io.tmpdir", cli.System.IO.Path.GetTempPath());
         }
-        catch(cli.System.Security.SecurityException _)
+        catch(cli.System.Security.SecurityException throwaway)
         {
             // TODO should we set another value?
             p.setProperty("java.io.tmpdir", ".");
@@ -289,7 +289,7 @@ final class VMSystemProperties
             if(false) throw new cli.System.Security.SecurityException();
             p.setProperty("user.name", cli.System.Environment.get_UserName());
         }
-        catch(cli.System.Security.SecurityException _)
+        catch(cli.System.Security.SecurityException throwaway)
         {
             p.setProperty("user.name", "(unknown)");
         }
@@ -309,7 +309,7 @@ final class VMSystemProperties
                     if(false) throw new cli.System.Security.SecurityException();
                     home = cli.System.Environment.GetFolderPath(cli.System.Environment.SpecialFolder.wrap(cli.System.Environment.SpecialFolder.Personal));
                 }
-                catch(cli.System.Security.SecurityException _)
+                catch(cli.System.Security.SecurityException throwaway)
                 {
                     home = ".";
                 }
@@ -321,7 +321,7 @@ final class VMSystemProperties
             if(false) throw new cli.System.Security.SecurityException();
             p.setProperty("user.dir", cli.System.Environment.get_CurrentDirectory());
         }
-        catch(cli.System.Security.SecurityException _)
+        catch(cli.System.Security.SecurityException throwaway)
         {
             p.setProperty("user.dir", ".");
         }
@@ -389,7 +389,7 @@ final class VMSystemProperties
                 }
             }
         }
-        catch(cli.System.Configuration.ConfigurationException _)
+        catch(cli.System.Configuration.ConfigurationException throwaway)
         {
             // app.config is invalid, ignore
         }

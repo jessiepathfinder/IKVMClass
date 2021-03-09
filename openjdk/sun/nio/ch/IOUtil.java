@@ -50,7 +50,7 @@ public class IOUtil {
             csp.GetBytes(someBytes);
             return true;
         }
-        catch (cli.System.Security.Cryptography.CryptographicException _)
+        catch (cli.System.Security.Cryptography.CryptographicException throwaway)
         {
             return false;
         }

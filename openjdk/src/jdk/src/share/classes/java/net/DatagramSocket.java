@@ -72,7 +72,8 @@ class DatagramSocket implements java.io.Closeable {
     private boolean bound = false;
     private boolean closed = false;
     private Object closeLock = new Object();
-
+	//Set to true before launching Minecraft 1.12 and above!
+	public static boolean MinecraftCompatMode = false;
     /*
      * The implementation of this DatagramSocket.
      */
@@ -171,6 +172,9 @@ class DatagramSocket implements java.io.Closeable {
 
         connectedAddress = address;
         connectedPort = port;
+		if(MinecraftCompatMode){
+			setSoTimeout(30000);
+		}
     }
 
 
@@ -899,7 +903,14 @@ class DatagramSocket implements java.io.Closeable {
     public synchronized void setSoTimeout(int timeout) throws SocketException {
         if (isClosed())
             throw new SocketException("Socket is closed");
-        getImpl().setOption(SocketOptions.SO_TIMEOUT, new Integer(timeout));
+		if (timeout < 0)
+          throw new IllegalArgumentException("timeout can't be negative");
+        //For Minecraft 1.12.2 compatibility, we set our socket timeout to 30 secs.
+		if(MinecraftCompatMode){
+			getImpl().setOption(SocketOptions.SO_TIMEOUT, new Integer(30000));
+		} else{
+			getImpl().setOption(SocketOptions.SO_TIMEOUT, new Integer(timeout));
+		}
     }
 
     /**
@@ -1182,7 +1193,14 @@ class DatagramSocket implements java.io.Closeable {
 
         if (isClosed())
             throw new SocketException("Socket is closed");
-        getImpl().setOption(SocketOptions.IP_TOS, new Integer(tc));
+        try {
+            getImpl().setOption(SocketOptions.IP_TOS, tc);
+        } catch (SocketException se) {
+            // not supported if socket already connected
+            // Solaris returns error in such cases
+            if(!isConnected())
+                throw se;
+        }
     }
 
     /**

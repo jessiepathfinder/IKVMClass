@@ -279,7 +279,7 @@ class FileDispatcherImpl extends FileDispatcher
                     }
                 }
                 tmp.delete();
-            } catch (Throwable _) {
+            } catch (Throwable throwaway1) {
             }
         }
         static boolean isErrorNotLocked(cli.System.IO.IOException x) {
@@ -297,6 +297,18 @@ class FileDispatcherImpl extends FileDispatcher
         // and we don't want the original to be closed
         return new FileDescriptor();
     }
+	
+	boolean transferToDirectlyNeedsPositionLock() {
+        return true;
+    }
+	
+	boolean canTransferToDirectly(java.nio.channels.SelectableChannel sc) {
+        return sc.isBlocking();
+    }
+	
+	long seek(FileDescriptor fd, long offset) throws IOException{
+		return fd.skip(offset);
+	}
 
     @DllImportAttribute.Annotation(value="kernel32", SetLastError=true)
     private static native int LockFileEx(SafeFileHandle hFile, int dwFlags, int dwReserved, int nNumberOfBytesToLockLow, int nNumberOfBytesToLockHigh, OVERLAPPED lpOverlapped);

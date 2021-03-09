@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2002, 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,6 +27,8 @@ package sun.security.x509;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.Arrays;
+import java.util.StringJoiner;
 import java.util.*;
 
 import sun.security.util.*;
@@ -341,7 +343,7 @@ public class RDN {
     /*
      * Returns a printable form of this RDN, using RFC 1779 style catenation
      * of attribute/value assertions, and emitting attribute type keywords
-     * from RFCs 1779, 2253, and 3280.
+     * from RFCs 1779, 2253, and 5280.
      */
     public String toString() {
         if (assertion.length == 1) {
@@ -442,31 +444,19 @@ public class RDN {
                                assertion[0].toRFC2253String(oidMap);
         }
 
-        StringBuilder relname = new StringBuilder();
-        if (!canonical) {
-            for (int i = 0; i < assertion.length; i++) {
-                if (i > 0) {
-                    relname.append('+');
-                }
-                relname.append(assertion[i].toRFC2253String(oidMap));
-            }
-        } else {
+        AVA[] toOutput = assertion;
+        if (canonical) {
             // order the string type AVA's alphabetically,
             // followed by the oid type AVA's numerically
-            List<AVA> avaList = new ArrayList<AVA>(assertion.length);
-            for (int i = 0; i < assertion.length; i++) {
-                avaList.add(assertion[i]);
-            }
-            java.util.Collections.sort(avaList, AVAComparator.getInstance());
-
-            for (int i = 0; i < avaList.size(); i++) {
-                if (i > 0) {
-                    relname.append('+');
-                }
-                relname.append(avaList.get(i).toRFC2253CanonicalString());
-            }
+            toOutput = assertion.clone();
+            Arrays.sort(toOutput, AVAComparator.getInstance());
         }
-        return relname.toString();
+        StringJoiner sj = new StringJoiner("+");
+        for (AVA ava : toOutput) {
+            sj.add(canonical ? ava.toRFC2253CanonicalString()
+                             : ava.toRFC2253String(oidMap));
+        }
+        return sj.toString();
     }
 
 }

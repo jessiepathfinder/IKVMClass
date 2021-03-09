@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -28,6 +28,7 @@ package java.lang.invoke;
 import java.lang.reflect.*;
 import java.util.BitSet;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 import sun.invoke.util.ValueConversions;
@@ -679,7 +680,9 @@ public class MethodHandles {
             // disallow lookup more restricted packages
             if (allowedModes == ALL_MODES && lookupClass.getClassLoader() == null) {
                 if (name.startsWith("java.") ||
-                        (name.startsWith("sun.") && !name.startsWith("sun.invoke."))) {
+                        (name.startsWith("sun.")
+                                && !name.startsWith("sun.invoke.")
+                                && !name.equals("sun.reflect.ReflectionFactory"))) {
                     throw newIllegalArgumentException("illegal lookupClass: " + lookupClass);
                 }
             }
@@ -864,8 +867,6 @@ assertEquals("", (String) MH_newString.invokeExact());
                 return invoker(type);
             if ("invokeExact".equals(name))
                 return exactInvoker(type);
-            if ("invokeBasic".equals(name))
-                return basicInvoker(type);
             assert(!MemberName.isMethodHandleInvokeName(name));
             return null;
         }
@@ -916,6 +917,9 @@ assertEquals("[x, y, z]", pb.command().toString());
          * @throws NullPointerException if any argument is null
          */
         public MethodHandle findConstructor(Class<?> refc, MethodType type) throws NoSuchMethodException, IllegalAccessException {
+            if (refc.isArray()) {
+                throw new NoSuchMethodException("no constructor for array class: " + refc.getName());
+            }
             String name = "<init>";
             MemberName ctor = resolveOrFail(REF_newInvokeSpecial, refc, name, type);
             return getDirectConstructor(refc, ctor);
@@ -2447,6 +2451,7 @@ assertEquals("yz", (String) d0.invokeExact(123, "x", "y", "z"));
      */
     public static
     MethodHandle dropArguments(MethodHandle target, int pos, List<Class<?>> valueTypes) {
+        valueTypes = copyTypes(valueTypes);
         MethodType oldType = target.type();  // get NPE
         int dropped = dropArgumentChecks(oldType, pos, valueTypes);
         MethodType newType = oldType.insertParameterTypes(pos, valueTypes);
@@ -2459,6 +2464,11 @@ assertEquals("yz", (String) d0.invokeExact(123, "x", "y", "z"));
         }
         result = result.copyWith(newType, lform);
         return result;
+    }
+
+    private static List<Class<?>> copyTypes(List<Class<?>> types) {
+        Object[] a = types.toArray();
+        return Arrays.asList(Arrays.copyOf(a, a.length, Class[].class));
     }
 
     private static int dropArgumentChecks(MethodType oldType, int pos, List<Class<?>> valueTypes) {
@@ -2842,7 +2852,7 @@ System.out.println((int) f0.invokeExact("x", "y")); // 2
         int filterValues = filterType.parameterCount();
         if (filterValues == 0
                 ? (rtype != void.class)
-                : (rtype != filterType.parameterType(0)))
+                : (rtype != filterType.parameterType(0) || filterValues != 1))
             throw newIllegalArgumentException("target and filter types do not match", targetType, filterType);
     }
 

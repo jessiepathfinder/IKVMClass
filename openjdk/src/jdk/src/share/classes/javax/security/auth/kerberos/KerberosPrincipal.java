@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -80,6 +80,11 @@ public final class KerberosPrincipal
 
     public static final int KRB_NT_UID = 5;
 
+    /**
+     * Enterprise name (alias)
+     */
+    static final int KRB_NT_ENTERPRISE = 10;
+
     private transient String fullName;
 
     private transient String realm;
@@ -112,18 +117,7 @@ public final class KerberosPrincipal
      * java.security.krb5.realm system property.
      */
     public KerberosPrincipal(String name) {
-
-        PrincipalName krb5Principal = null;
-
-        try {
-            // Appends the default realm if it is missing
-            krb5Principal = new PrincipalName(name, KRB_NT_PRINCIPAL);
-        } catch (KrbException e) {
-            throw new IllegalArgumentException(e.getMessage());
-        }
-        nameType = KRB_NT_PRINCIPAL;  // default name type
-        fullName = krb5Principal.toString();
-        realm = krb5Principal.getRealmString();
+        this(name, KRB_NT_PRINCIPAL);
     }
 
     /**
@@ -165,6 +159,20 @@ public final class KerberosPrincipal
             throw new IllegalArgumentException(e.getMessage());
         }
 
+        // A ServicePermission with a principal in the deduced realm and
+        // any action must be granted if no realm is provided by caller.
+        if (krb5Principal.isRealmDeduced() && !Realm.AUTODEDUCEREALM) {
+            SecurityManager sm = System.getSecurityManager();
+            if (sm != null) {
+                try {
+                    sm.checkPermission(new ServicePermission(
+                            "@" + krb5Principal.getRealmAsString(), "-"));
+                } catch (SecurityException se) {
+                    // Swallow the actual exception to hide info
+                    throw new SecurityException("Cannot read realm info");
+                }
+            }
+        }
         this.nameType = nameType;
         fullName = krb5Principal.toString();
         realm = krb5Principal.getRealmString();

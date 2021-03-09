@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1995, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1995, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -37,6 +37,7 @@ import java.security.AccessController;
 import java.io.ObjectStreamException;
 import java.io.ObjectStreamField;
 import java.io.IOException;
+import java.io.InvalidObjectException;
 import java.io.ObjectInputStream;
 import java.io.ObjectInputStream.GetField;
 import java.io.ObjectOutputStream;
@@ -203,16 +204,33 @@ class InetAddress implements java.io.Serializable {
     static transient boolean preferIPv6Address = false;
 
     static class InetAddressHolder {
+        /**
+         * Reserve the original application specified hostname.
+         *
+         * The original hostname is useful for domain-based endpoint
+         * identification (see RFC 2818 and RFC 6125).  If an address
+         * was created with a raw IP address, a reverse name lookup
+         * may introduce endpoint identification security issue via
+         * DNS forging.
+         *
+         * Oracle JSSE provider is using this original hostname, via
+         * sun.misc.JavaNetAccess, for SSL/TLS endpoint identification.
+         *
+         * Note: May define a new public method in the future if necessary.
+         */
+        String originalHostName;
 
         InetAddressHolder() {}
 
         InetAddressHolder(String hostName, int address, int family) {
+            this.originalHostName = hostName;
             this.hostName = hostName;
             this.address = address;
             this.family = family;
         }
 
         void init(String hostName, int family) {
+            this.originalHostName = hostName;
             this.hostName = hostName;
             if (family != -1) {
                 this.family = family;
@@ -223,6 +241,10 @@ class InetAddress implements java.io.Serializable {
 
         String getHostName() {
             return hostName;
+        }
+
+        String getOriginalHostName() {
+            return originalHostName;
         }
 
         /**
@@ -1581,8 +1603,11 @@ class InetAddress implements java.io.Serializable {
         }
         GetField gf = s.readFields();
         String host = (String)gf.get("hostName", null);
-        int address= gf.get("address", 0);
-        int family= gf.get("family", 0);
+        int address = gf.get("address", 0);
+        int family = gf.get("family", 0);
+        if (family != IPv4 && family != IPv6) {
+            throw new InvalidObjectException("invalid address family type: " + family);
+        }
         InetAddressHolder h = new InetAddressHolder(host, address, family);
         UNSAFE.putObject(this, FIELDS_OFFSET, h);
     }

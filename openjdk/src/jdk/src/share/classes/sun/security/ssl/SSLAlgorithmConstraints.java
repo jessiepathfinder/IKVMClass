@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2010, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,18 +26,13 @@
 package sun.security.ssl;
 
 import java.security.AlgorithmConstraints;
-import java.security.CryptoPrimitive;
 import java.security.AlgorithmParameters;
-
-import javax.net.ssl.*;
-
+import java.security.CryptoPrimitive;
 import java.security.Key;
-
 import java.util.Set;
-import java.util.HashSet;
-
+import javax.net.ssl.*;
 import sun.security.util.DisabledAlgorithmConstraints;
-import sun.security.ssl.CipherSuite.*;
+import static sun.security.util.DisabledAlgorithmConstraints.*;
 
 /**
  * Algorithm constraints for disabled algorithms property
@@ -46,77 +41,102 @@ import sun.security.ssl.CipherSuite.*;
  * for the syntax of the disabled algorithm string.
  */
 final class SSLAlgorithmConstraints implements AlgorithmConstraints {
-    private final static AlgorithmConstraints tlsDisabledAlgConstraints =
-            new TLSDisabledAlgConstraints();
-    private final static AlgorithmConstraints x509DisabledAlgConstraints =
-            new X509DisabledAlgConstraints();
-    private AlgorithmConstraints userAlgConstraints = null;
-    private AlgorithmConstraints peerAlgConstraints = null;
 
-    private boolean enabledX509DisabledAlgConstraints = true;
+    private static final AlgorithmConstraints tlsDisabledAlgConstraints =
+            new DisabledAlgorithmConstraints(PROPERTY_TLS_DISABLED_ALGS,
+                    new SSLAlgorithmDecomposer());
+
+    private static final AlgorithmConstraints x509DisabledAlgConstraints =
+            new DisabledAlgorithmConstraints(PROPERTY_CERTPATH_DISABLED_ALGS,
+                    new SSLAlgorithmDecomposer(true));
+
+    private final AlgorithmConstraints userSpecifiedConstraints;
+    private final AlgorithmConstraints peerSpecifiedConstraints;
+
+    private final boolean enabledX509DisabledAlgConstraints;
 
     // the default algorithm constraints
-    final static AlgorithmConstraints DEFAULT =
+    static final AlgorithmConstraints DEFAULT =
                         new SSLAlgorithmConstraints(null);
 
     // the default SSL only algorithm constraints
-    final static AlgorithmConstraints DEFAULT_SSL_ONLY =
+    static final AlgorithmConstraints DEFAULT_SSL_ONLY =
                         new SSLAlgorithmConstraints((SSLSocket)null, false);
 
-    SSLAlgorithmConstraints(AlgorithmConstraints algorithmConstraints) {
-        userAlgConstraints = algorithmConstraints;
+    SSLAlgorithmConstraints(AlgorithmConstraints userSpecifiedConstraints) {
+        this.userSpecifiedConstraints = userSpecifiedConstraints;
+        this.peerSpecifiedConstraints = null;
+        this.enabledX509DisabledAlgConstraints = true;
     }
 
     SSLAlgorithmConstraints(SSLSocket socket,
             boolean withDefaultCertPathConstraints) {
-        if (socket != null) {
-            userAlgConstraints =
-                socket.getSSLParameters().getAlgorithmConstraints();
-        }
-
-        if (!withDefaultCertPathConstraints) {
-            enabledX509DisabledAlgConstraints = false;
-        }
+        this.userSpecifiedConstraints = getUserSpecifiedConstraints(socket);
+        this.peerSpecifiedConstraints = null;
+        this.enabledX509DisabledAlgConstraints = withDefaultCertPathConstraints;
     }
 
     SSLAlgorithmConstraints(SSLEngine engine,
             boolean withDefaultCertPathConstraints) {
-        if (engine != null) {
-            userAlgConstraints =
-                engine.getSSLParameters().getAlgorithmConstraints();
-        }
-
-        if (!withDefaultCertPathConstraints) {
-            enabledX509DisabledAlgConstraints = false;
-        }
+        this.userSpecifiedConstraints = getUserSpecifiedConstraints(engine);
+        this.peerSpecifiedConstraints = null;
+        this.enabledX509DisabledAlgConstraints = withDefaultCertPathConstraints;
     }
 
     SSLAlgorithmConstraints(SSLSocket socket, String[] supportedAlgorithms,
             boolean withDefaultCertPathConstraints) {
-        if (socket != null) {
-            userAlgConstraints =
-                socket.getSSLParameters().getAlgorithmConstraints();
-            peerAlgConstraints =
+        this.userSpecifiedConstraints = getUserSpecifiedConstraints(socket);
+        this.peerSpecifiedConstraints =
                 new SupportedSignatureAlgorithmConstraints(supportedAlgorithms);
-        }
-
-        if (!withDefaultCertPathConstraints) {
-            enabledX509DisabledAlgConstraints = false;
-        }
+        this.enabledX509DisabledAlgConstraints = withDefaultCertPathConstraints;
     }
 
     SSLAlgorithmConstraints(SSLEngine engine, String[] supportedAlgorithms,
             boolean withDefaultCertPathConstraints) {
-        if (engine != null) {
-            userAlgConstraints =
-                engine.getSSLParameters().getAlgorithmConstraints();
-            peerAlgConstraints =
+        this.userSpecifiedConstraints = getUserSpecifiedConstraints(engine);
+        this.peerSpecifiedConstraints =
                 new SupportedSignatureAlgorithmConstraints(supportedAlgorithms);
+        this.enabledX509DisabledAlgConstraints = withDefaultCertPathConstraints;
+    }
+
+    private static AlgorithmConstraints getUserSpecifiedConstraints(
+            SSLEngine engine) {
+        if (engine != null) {
+            // Note that the KeyManager or TrustManager implementation may be
+            // not implemented in the same provider as SSLSocket/SSLEngine.
+            // Please check the instance before casting to use SSLEngineImpl.
+            if (engine instanceof SSLEngineImpl) {
+                HandshakeContext hc =
+                        ((SSLEngineImpl)engine).conContext.handshakeContext;
+                if (hc != null) {
+                    return hc.sslConfig.userSpecifiedAlgorithmConstraints;
+                }
+            }
+
+            return engine.getSSLParameters().getAlgorithmConstraints();
         }
 
-        if (!withDefaultCertPathConstraints) {
-            enabledX509DisabledAlgConstraints = false;
+        return null;
+    }
+
+    private static AlgorithmConstraints getUserSpecifiedConstraints(
+            SSLSocket socket) {
+        if (socket != null) {
+            // Note that the KeyManager or TrustManager implementation may be
+            // not implemented in the same provider as SSLSocket/SSLEngine.
+            // Please check the instance before casting to use SSLSocketImpl.
+            if (socket instanceof SSLSocketImpl) {
+                HandshakeContext hc =
+                        ((SSLSocketImpl)socket).conContext.handshakeContext;
+                if (hc != null) {
+                    return hc.sslConfig.userSpecifiedAlgorithmConstraints;
+                }
+            }
+
+            return socket.getSSLParameters().getAlgorithmConstraints();
         }
+
+        return null;
     }
 
     @Override
@@ -125,13 +145,13 @@ final class SSLAlgorithmConstraints implements AlgorithmConstraints {
 
         boolean permitted = true;
 
-        if (peerAlgConstraints != null) {
-            permitted = peerAlgConstraints.permits(
+        if (peerSpecifiedConstraints != null) {
+            permitted = peerSpecifiedConstraints.permits(
                                     primitives, algorithm, parameters);
         }
 
-        if (permitted && userAlgConstraints != null) {
-            permitted = userAlgConstraints.permits(
+        if (permitted && userSpecifiedConstraints != null) {
+            permitted = userSpecifiedConstraints.permits(
                                     primitives, algorithm, parameters);
         }
 
@@ -153,12 +173,12 @@ final class SSLAlgorithmConstraints implements AlgorithmConstraints {
 
         boolean permitted = true;
 
-        if (peerAlgConstraints != null) {
-            permitted = peerAlgConstraints.permits(primitives, key);
+        if (peerSpecifiedConstraints != null) {
+            permitted = peerSpecifiedConstraints.permits(primitives, key);
         }
 
-        if (permitted && userAlgConstraints != null) {
-            permitted = userAlgConstraints.permits(primitives, key);
+        if (permitted && userSpecifiedConstraints != null) {
+            permitted = userSpecifiedConstraints.permits(primitives, key);
         }
 
         if (permitted) {
@@ -178,13 +198,13 @@ final class SSLAlgorithmConstraints implements AlgorithmConstraints {
 
         boolean permitted = true;
 
-        if (peerAlgConstraints != null) {
-            permitted = peerAlgConstraints.permits(
+        if (peerSpecifiedConstraints != null) {
+            permitted = peerSpecifiedConstraints.permits(
                                     primitives, algorithm, key, parameters);
         }
 
-        if (permitted && userAlgConstraints != null) {
-            permitted = userAlgConstraints.permits(
+        if (permitted && userSpecifiedConstraints != null) {
+            permitted = userSpecifiedConstraints.permits(
                                     primitives, algorithm, key, parameters);
         }
 
@@ -202,7 +222,7 @@ final class SSLAlgorithmConstraints implements AlgorithmConstraints {
     }
 
 
-    static private class SupportedSignatureAlgorithmConstraints
+    private static class SupportedSignatureAlgorithmConstraints
                                     implements AlgorithmConstraints {
         // supported signature algorithms
         private String[] supportedAlgorithms;
@@ -219,7 +239,7 @@ final class SSLAlgorithmConstraints implements AlgorithmConstraints {
         public boolean permits(Set<CryptoPrimitive> primitives,
                 String algorithm, AlgorithmParameters parameters) {
 
-            if (algorithm == null || algorithm.length() == 0) {
+            if (algorithm == null || algorithm.isEmpty()) {
                 throw new IllegalArgumentException(
                         "No algorithm name specified");
             }
@@ -250,15 +270,15 @@ final class SSLAlgorithmConstraints implements AlgorithmConstraints {
         }
 
         @Override
-        final public boolean permits(Set<CryptoPrimitive> primitives, Key key) {
+        public final boolean permits(Set<CryptoPrimitive> primitives, Key key) {
             return true;
         }
 
         @Override
-        final public boolean permits(Set<CryptoPrimitive> primitives,
+        public final boolean permits(Set<CryptoPrimitive> primitives,
                 String algorithm, Key key, AlgorithmParameters parameters) {
 
-            if (algorithm == null || algorithm.length() == 0) {
+            if (algorithm == null || algorithm.isEmpty()) {
                 throw new IllegalArgumentException(
                         "No algorithm name specified");
             }
@@ -266,218 +286,4 @@ final class SSLAlgorithmConstraints implements AlgorithmConstraints {
             return permits(primitives, algorithm, parameters);
         }
     }
-
-    static private class BasicDisabledAlgConstraints
-            extends DisabledAlgorithmConstraints {
-        BasicDisabledAlgConstraints(String propertyName) {
-            super(propertyName);
-        }
-
-        protected Set<String> decomposes(KeyExchange keyExchange,
-                        boolean forCertPathOnly) {
-            Set<String> components = new HashSet<>();
-            switch (keyExchange) {
-                case K_NULL:
-                    if (!forCertPathOnly) {
-                        components.add("NULL");
-                    }
-                    break;
-                case K_RSA:
-                    components.add("RSA");
-                    break;
-                case K_RSA_EXPORT:
-                    components.add("RSA");
-                    components.add("RSA_EXPORT");
-                    break;
-                case K_DH_RSA:
-                    components.add("RSA");
-                    components.add("DH");
-                    components.add("DiffieHellman");
-                    components.add("DH_RSA");
-                    break;
-                case K_DH_DSS:
-                    components.add("DSA");
-                    components.add("DSS");
-                    components.add("DH");
-                    components.add("DiffieHellman");
-                    components.add("DH_DSS");
-                    break;
-                case K_DHE_DSS:
-                    components.add("DSA");
-                    components.add("DSS");
-                    components.add("DH");
-                    components.add("DHE");
-                    components.add("DiffieHellman");
-                    components.add("DHE_DSS");
-                    break;
-                case K_DHE_RSA:
-                    components.add("RSA");
-                    components.add("DH");
-                    components.add("DHE");
-                    components.add("DiffieHellman");
-                    components.add("DHE_RSA");
-                    break;
-                case K_DH_ANON:
-                    if (!forCertPathOnly) {
-                        components.add("ANON");
-                        components.add("DH");
-                        components.add("DiffieHellman");
-                        components.add("DH_ANON");
-                    }
-                    break;
-                case K_ECDH_ECDSA:
-                    components.add("ECDH");
-                    components.add("ECDSA");
-                    components.add("ECDH_ECDSA");
-                    break;
-                case K_ECDH_RSA:
-                    components.add("ECDH");
-                    components.add("RSA");
-                    components.add("ECDH_RSA");
-                    break;
-                case K_ECDHE_ECDSA:
-                    components.add("ECDHE");
-                    components.add("ECDSA");
-                    components.add("ECDHE_ECDSA");
-                    break;
-                case K_ECDHE_RSA:
-                    components.add("ECDHE");
-                    components.add("RSA");
-                    components.add("ECDHE_RSA");
-                    break;
-                case K_ECDH_ANON:
-                    if (!forCertPathOnly) {
-                        components.add("ECDH");
-                        components.add("ANON");
-                        components.add("ECDH_ANON");
-                    }
-                    break;
-                case K_KRB5:
-                    if (!forCertPathOnly) {
-                        components.add("KRB5");
-                    }
-                    break;
-                case K_KRB5_EXPORT:
-                    if (!forCertPathOnly) {
-                        components.add("KRB5_EXPORT");
-                    }
-                    break;
-                default:
-                    // ignore
-            }
-
-            return components;
-        }
-
-        protected Set<String> decomposes(BulkCipher bulkCipher) {
-            Set<String> components = new HashSet<>();
-
-            if (bulkCipher.transformation != null) {
-                components.addAll(super.decomposes(bulkCipher.transformation));
-            }
-
-            return components;
-        }
-
-        protected Set<String> decomposes(MacAlg macAlg) {
-            Set<String> components = new HashSet<>();
-
-            if (macAlg == CipherSuite.M_MD5) {
-                components.add("MD5");
-                components.add("HmacMD5");
-            } else if (macAlg == CipherSuite.M_SHA) {
-                components.add("SHA1");
-                components.add("SHA-1");
-                components.add("HmacSHA1");
-            } else if (macAlg == CipherSuite.M_SHA256) {
-                components.add("SHA256");
-                components.add("SHA-256");
-                components.add("HmacSHA256");
-            } else if (macAlg == CipherSuite.M_SHA384) {
-                components.add("SHA384");
-                components.add("SHA-384");
-                components.add("HmacSHA384");
-            }
-
-            return components;
-        }
-    }
-
-    static private class TLSDisabledAlgConstraints
-            extends BasicDisabledAlgConstraints {
-
-        TLSDisabledAlgConstraints() {
-            super(DisabledAlgorithmConstraints.PROPERTY_TLS_DISABLED_ALGS);
-        }
-
-        @Override
-        protected Set<String> decomposes(String algorithm) {
-            if (algorithm.startsWith("SSL_") || algorithm.startsWith("TLS_")) {
-                CipherSuite cipherSuite = null;
-                try {
-                    cipherSuite = CipherSuite.valueOf(algorithm);
-                } catch (IllegalArgumentException iae) {
-                    // ignore: unknown or unsupported ciphersuite
-                }
-
-                if (cipherSuite != null) {
-                    Set<String> components = new HashSet<>();
-
-                    if(cipherSuite.keyExchange != null) {
-                        components.addAll(
-                            decomposes(cipherSuite.keyExchange, false));
-                    }
-
-                    if (cipherSuite.cipher != null) {
-                        components.addAll(decomposes(cipherSuite.cipher));
-                    }
-
-                    if (cipherSuite.macAlg != null) {
-                        components.addAll(decomposes(cipherSuite.macAlg));
-                    }
-
-                    return components;
-                }
-            }
-
-            return super.decomposes(algorithm);
-        }
-    }
-
-    static private class X509DisabledAlgConstraints
-            extends BasicDisabledAlgConstraints {
-
-        X509DisabledAlgConstraints() {
-            super(DisabledAlgorithmConstraints.PROPERTY_CERTPATH_DISABLED_ALGS);
-        }
-
-        @Override
-        protected Set<String> decomposes(String algorithm) {
-            if (algorithm.startsWith("SSL_") || algorithm.startsWith("TLS_")) {
-                CipherSuite cipherSuite = null;
-                try {
-                    cipherSuite = CipherSuite.valueOf(algorithm);
-                } catch (IllegalArgumentException iae) {
-                    // ignore: unknown or unsupported ciphersuite
-                }
-
-                if (cipherSuite != null) {
-                    Set<String> components = new HashSet<>();
-
-                    if(cipherSuite.keyExchange != null) {
-                        components.addAll(
-                            decomposes(cipherSuite.keyExchange, true));
-                    }
-
-                    // Certification path algorithm constraints do not apply
-                    // to cipherSuite.cipher and cipherSuite.macAlg.
-
-                    return components;
-                }
-            }
-
-            return super.decomposes(algorithm);
-        }
-    }
 }
-

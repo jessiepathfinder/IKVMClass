@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -29,6 +29,7 @@ import java.lang.reflect.Array;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import sun.misc.SharedSecrets;
 
 /**
  * This class implements the <tt>Map</tt> interface with a hash table, using
@@ -964,10 +965,11 @@ public class IdentityHashMap<K,V>
      */
     public Set<K> keySet() {
         Set<K> ks = keySet;
-        if (ks != null)
-            return ks;
-        else
-            return keySet = new KeySet();
+        if (ks == null) {
+            ks = new KeySet();
+            keySet = ks;
+        }
+        return ks;
     }
 
     private class KeySet extends AbstractSet<K> {
@@ -1069,10 +1071,11 @@ public class IdentityHashMap<K,V>
      */
     public Collection<V> values() {
         Collection<V> vs = values;
-        if (vs != null)
-            return vs;
-        else
-            return values = new Values();
+        if (vs == null) {
+            vs = new Values();
+            values = vs;
+        }
+        return vs;
     }
 
     private class Values extends AbstractCollection<V> {
@@ -1302,7 +1305,9 @@ public class IdentityHashMap<K,V>
         if (size < 0)
             throw new java.io.StreamCorruptedException
                 ("Illegal mappings count: " + size);
-        init(capacity(size));
+        int cap = capacity(size);
+        SharedSecrets.getJavaOISAccess().checkArray(s, Object[].class, cap);
+        init(cap);
 
         // Read the keys and values, and put the mappings in the table
         for (int i=0; i<size; i++) {

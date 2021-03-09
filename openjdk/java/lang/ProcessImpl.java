@@ -527,8 +527,8 @@ final class ProcessImpl extends Process {
             if (false) throw new cli.System.ComponentModel.Win32Exception();
             if (false) throw new cli.System.InvalidOperationException();
             handle.Kill();
-        } catch (cli.System.ComponentModel.Win32Exception _) {
-        } catch (cli.System.InvalidOperationException _) {
+        } catch (cli.System.ComponentModel.Win32Exception throwaway) {
+        } catch (cli.System.InvalidOperationException throwaway) {
         }
     }
 
@@ -683,7 +683,7 @@ final class ProcessImpl extends Process {
                 {
                     wait();
                 }
-                catch (InterruptedException _) { }
+                catch (InterruptedException throwaway) { }
             }
             if (pos == -1)
             {
@@ -706,7 +706,7 @@ final class ProcessImpl extends Process {
                 {
                     wait();
                 }
-                catch (InterruptedException _) { }
+                catch (InterruptedException throwaway) { }
             }
             System.arraycopy(buffer, offset, buf, pos, count);
             pos += count;
@@ -822,13 +822,13 @@ final class ProcessImpl extends Process {
                     } else {
                         out.Close();
                     }
-                } catch (Throwable _) {
+                } catch (Throwable throwaway1) {
                 }
             }
         });
         try {
             in.BeginRead(buf, 0, buf.length, callback[0], null);
-        } catch (Throwable _) {
+        } catch (Throwable throwaway1) {
         }
     }
 }

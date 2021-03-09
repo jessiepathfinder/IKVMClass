@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2002, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -33,6 +33,7 @@ import java.awt.event.*;
 import java.awt.font.*;
 import java.awt.geom.*;
 import java.awt.print.PrinterGraphics;
+import java.text.BreakIterator;
 import java.text.CharacterIterator;
 import java.text.AttributedCharacterIterator;
 import java.text.AttributedString;
@@ -464,16 +465,15 @@ public class SwingUtilities2 {
             }
         }
         if (needsTextLayout) {
-            FontRenderContext frc = getFontRenderContext(c, fm);
             AttributedString aString = new AttributedString(string);
             if (c != null) {
                 aString.addAttribute(TextAttribute.NUMERIC_SHAPING,
                         c.getClientProperty(TextAttribute.NUMERIC_SHAPING));
             }
-            LineBreakMeasurer measurer =
-                new LineBreakMeasurer(aString.getIterator(), frc);
-            int nChars = measurer.nextOffset(availTextWidth);
-            string = string.substring(0, nChars);
+            LineBreakMeasurer measurer = new LineBreakMeasurer(
+                    aString.getIterator(), BreakIterator.getCharacterInstance(),
+                    getFontRenderContext(c, fm));
+            string = string.substring(0, measurer.nextOffset(availTextWidth));
 
         }
         return string + clipString;
@@ -511,11 +511,15 @@ public class SwingUtilities2 {
                 String trimmedText = trimTrailingSpaces(text);
                 if (!trimmedText.isEmpty()) {
                     float screenWidth = (float) g2d.getFont().getStringBounds
-                            (trimmedText, DEFAULT_FRC).getWidth();
+                            (trimmedText, getFontRenderContext(c)).getWidth();
                     TextLayout layout = createTextLayout(c, text, g2d.getFont(),
                                                        g2d.getFontRenderContext());
 
-                    layout = layout.getJustifiedLayout(screenWidth);
+                    // If text fits the screenWidth, then do not need to justify
+                    if (SwingUtilities2.stringWidth(c, g2d.getFontMetrics(),
+                                            trimmedText) > screenWidth) {
+                        layout = layout.getJustifiedLayout(screenWidth);
+                    }
                     /* Use alternate print color if specified */
                     Color col = g2d.getColor();
                     if (col instanceof PrintColorUIResource) {
@@ -640,8 +644,12 @@ public class SwingUtilities2 {
                                        g2d.getFontRenderContext());
                     if (isPrinting) {
                         float screenWidth = (float)g2d.getFont().
-                            getStringBounds(text, DEFAULT_FRC).getWidth();
-                        layout = layout.getJustifiedLayout(screenWidth);
+                            getStringBounds(text, getFontRenderContext(c)).getWidth();
+                        // If text fits the screenWidth, then do not need to justify
+                        if (SwingUtilities2.stringWidth(c, g2d.getFontMetrics(),
+                                                        text) > screenWidth) {
+                            layout = layout.getJustifiedLayout(screenWidth);
+                        }
                     }
                     TextHitInfo leading =
                         TextHitInfo.leading(underlinedIndex);
@@ -804,7 +812,11 @@ public class SwingUtilities2 {
                     if (!trimmedText.isEmpty()) {
                         float screenWidth = (float)g2d.getFont().
                             getStringBounds(trimmedText, frc).getWidth();
-                        layout = layout.getJustifiedLayout(screenWidth);
+                        // If text fits the screenWidth, then do not need to justify
+                        if (SwingUtilities2.stringWidth(c, g2d.getFontMetrics(),
+                                                trimmedText) > screenWidth) {
+                            layout = layout.getJustifiedLayout(screenWidth);
+                        }
 
                         /* Use alternate print color if specified */
                         Color col = g2d.getColor();

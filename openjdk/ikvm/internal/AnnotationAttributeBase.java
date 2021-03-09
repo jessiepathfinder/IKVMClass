@@ -480,7 +480,7 @@ public abstract class AnnotationAttributeBase
                 {
                     Array.set(dst, i, val);
                 }
-                catch (IllegalArgumentException _)
+                catch (IllegalArgumentException throwaway)
                 {
                     // JDKBUG emulate JDK bug
                     throw new ArrayStoreException(val.getClass().getName());
@@ -580,11 +580,11 @@ public abstract class AnnotationAttributeBase
                     return true;
                 }
             }
-            catch (IllegalAccessException _)
+            catch (IllegalAccessException throwaway)
             {
                 // Ignore exception, like the JDK
             }
-            catch (InvocationTargetException _)
+            catch (InvocationTargetException throwaway)
             {
                 // Ignore exception, like the JDK
             }

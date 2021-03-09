@@ -21,10 +21,10 @@
  * under the License.
  */
 /*
- * Copyright (c) 2005, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2005, 2019, Oracle and/or its affiliates. All rights reserved.
  */
 /*
- * $Id: DOMURIDereferencer.java 1231033 2012-01-13 12:12:12Z coheigea $
+ * $Id: DOMURIDereferencer.java 1854026 2019-02-21 09:30:01Z coheigea $
  */
 package org.jcp.xml.dsig.internal.dom;
 
@@ -43,9 +43,8 @@ import javax.xml.crypto.dom.*;
 /**
  * DOM-based implementation of URIDereferencer.
  *
- * @author Sean Mullan
  */
-public class DOMURIDereferencer implements URIDereferencer {
+public final class DOMURIDereferencer implements URIDereferencer {
 
     static final URIDereferencer INSTANCE = new DOMURIDereferencer();
 
@@ -73,6 +72,11 @@ public class DOMURIDereferencer implements URIDereferencer {
 
         boolean secVal = Utils.secureValidation(context);
 
+        if (secVal && Policy.restrictReferenceUriScheme(uri)) {
+            throw new URIReferenceException(
+                "Uri " + uri + " is forbidden when secure validation is enabled");
+        }
+
         // Check if same-document URI and already registered on the context
         if (uri != null && uri.length() != 0 && uri.charAt(0) == '#') {
             String id = uri.substring(1);
@@ -83,17 +87,25 @@ public class DOMURIDereferencer implements URIDereferencer {
                 id = id.substring(i1+1, i2);
             }
 
-            Node referencedElem = dcc.getElementById(id);
+            // check if element is registered by Id
+            Node referencedElem = uriAttr.getOwnerDocument().getElementById(id);
+            if (referencedElem == null) {
+               // see if element is registered in DOMCryptoContext
+               referencedElem = dcc.getElementById(id);
+            }
             if (referencedElem != null) {
-                if (secVal) {
+                if (secVal && Policy.restrictDuplicateIds()) {
                     Element start = referencedElem.getOwnerDocument().getDocumentElement();
                     if (!XMLUtils.protectAgainstWrappingAttack(start, (Element)referencedElem, id)) {
-                        String error = "Multiple Elements with the same ID " + id + " were detected";
+                        String error = "Multiple Elements with the same ID "
+                            + id + " detected when secure validation"
+                            + " is enabled";
                         throw new URIReferenceException(error);
                     }
                 }
 
                 XMLSignatureInput result = new XMLSignatureInput(referencedElem);
+                result.setSecureValidation(secVal);
                 if (!uri.substring(1).startsWith("xpointer(id(")) {
                     result.setExcludeComments(true);
                 }
@@ -110,8 +122,8 @@ public class DOMURIDereferencer implements URIDereferencer {
 
         try {
             ResourceResolver apacheResolver =
-                ResourceResolver.getInstance(uriAttr, baseURI, secVal);
-            XMLSignatureInput in = apacheResolver.resolve(uriAttr, baseURI);
+                ResourceResolver.getInstance(uriAttr, baseURI, false);
+            XMLSignatureInput in = apacheResolver.resolve(uriAttr, baseURI, false);
             if (in.isOctetStream()) {
                 return new ApacheOctetStreamData(in);
             } else {

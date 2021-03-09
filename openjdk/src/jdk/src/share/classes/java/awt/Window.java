@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1995, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1995, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -348,7 +348,7 @@ public class Window extends Container implements Accessible {
      * @see #getOpacity()
      * @since 1.7
      */
-    private float opacity = 1.0f;
+    private volatile float opacity = 1.0f;
 
     /**
      * The shape assigned to this window. This field is set to {@code null} if
@@ -1040,9 +1040,7 @@ public class Window extends Container implements Accessible {
             closeSplashScreen();
             Dialog.checkShouldBeBlocked(this);
             super.show();
-            synchronized (getTreeLock()) {
-                this.locationByPlatform = false;
-            }
+            locationByPlatform = false;
             for (int i = 0; i < ownedWindowList.size(); i++) {
                 Window child = ownedWindowList.elementAt(i).get();
                 if ((child != null) && child.showWithParent) {
@@ -1115,9 +1113,7 @@ public class Window extends Container implements Accessible {
             modalBlocker.unblockWindow(this);
         }
         super.hide();
-        synchronized (getTreeLock()) {
-            this.locationByPlatform = false;
-        }
+        locationByPlatform = false;
     }
 
     final void clearMostRecentFocusOwnerOnHide() {
@@ -2790,7 +2786,9 @@ public class Window extends Container implements Accessible {
      */
     @Deprecated
     public void applyResourceBundle(String rbName) {
-        applyResourceBundle(ResourceBundle.getBundle(rbName));
+        applyResourceBundle(ResourceBundle.getBundle(rbName,
+                                Locale.getDefault(),
+                                ClassLoader.getSystemClassLoader()));
     }
 
    /*
@@ -3398,7 +3396,7 @@ public class Window extends Container implements Accessible {
         return super.canContainFocusOwner(focusOwnerCandidate) && isFocusableWindow();
     }
 
-    private boolean locationByPlatform = locationByPlatformProp;
+    private volatile boolean locationByPlatform = locationByPlatformProp;
 
 
     /**
@@ -3469,9 +3467,7 @@ public class Window extends Container implements Accessible {
      * @since 1.5
      */
     public boolean isLocationByPlatform() {
-        synchronized (getTreeLock()) {
-            return locationByPlatform;
-        }
+        return locationByPlatform;
     }
 
     /**
@@ -3560,9 +3556,7 @@ public class Window extends Container implements Accessible {
      * @since 1.7
      */
     public float getOpacity() {
-        synchronized (getTreeLock()) {
-            return opacity;
-        }
+        return opacity;
     }
 
     /**
@@ -4107,6 +4101,10 @@ public class Window extends Container implements Accessible {
 
             public void setTrayIconWindow(Window w, boolean isTrayIconWindow) {
                 w.isTrayIconWindow = isTrayIconWindow;
+            }
+
+            public Window[] getOwnedWindows(Window w) {
+                return w.getOwnedWindows_NoClientCode();
             }
         }); // WindowAccessor
     } // static

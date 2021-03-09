@@ -348,7 +348,7 @@ class Thread implements Runnable {
                             // so we waste a time slice... sigh.
                             t.Join(1);
                         }
-                        catch (cli.System.Threading.ThreadInterruptedException _) {
+                        catch (cli.System.Threading.ThreadInterruptedException throwaway) {
                         }
                     }
                     if (interruptPending) {
@@ -399,7 +399,7 @@ class Thread implements Runnable {
             }
             cli.System.Threading.Thread.Sleep((int)(millis % Integer.MAX_VALUE));
         }
-        catch (cli.System.Threading.ThreadInterruptedException _) {
+        catch (cli.System.Threading.ThreadInterruptedException throwaway) {
         }
         finally {
             c.leaveInterruptableWait();
@@ -1780,7 +1780,7 @@ class Thread implements Runnable {
             cli.System.Threading.Monitor.Pulse(obj);
             return true;
         }
-        catch (cli.System.Threading.SynchronizationLockException _) {
+        catch (cli.System.Threading.SynchronizationLockException throwaway) {
             return false;
         }
     }
@@ -2008,7 +2008,7 @@ class Thread implements Runnable {
                     }
                     stacks[i] = getStackTrace(stack);
                 }
-                catch (cli.System.Threading.ThreadStateException _) {
+                catch (cli.System.Threading.ThreadStateException throwaway) {
                     stacks[i] = new StackTraceElement[0];
                 }
             }
@@ -2398,7 +2398,7 @@ class Thread implements Runnable {
                 if (false) throw new cli.System.Threading.ThreadStateException();
                 nativeThread.set_Priority(cli.System.Threading.ThreadPriority.wrap(mapJavaPriorityToClr(newPriority)));
             }
-            catch (cli.System.Threading.ThreadStateException _) {
+            catch (cli.System.Threading.ThreadStateException throwaway) {
             }
         }
     }
@@ -2433,7 +2433,7 @@ class Thread implements Runnable {
                     if (false) throw new cli.System.Threading.ThreadStateException();
                     nativeThread.Abort(x);
                 }
-                catch (cli.System.Threading.ThreadStateException _) {
+                catch (cli.System.Threading.ThreadStateException throwaway) {
                     // .NET 2.0 throws a ThreadStateException if the target thread is currently suspended
                     // (but it does record the Abort request)
                 }
@@ -2444,7 +2444,7 @@ class Thread implements Runnable {
                         nativeThread.Resume();
                     }
                 }
-                catch (cli.System.Threading.ThreadStateException _) {
+                catch (cli.System.Threading.ThreadStateException throwaway) {
                 }
             }
         }
@@ -2458,7 +2458,7 @@ class Thread implements Runnable {
                 nativeThread.Suspend();
             }
         }
-        catch (cli.System.Threading.ThreadStateException _) {
+        catch (cli.System.Threading.ThreadStateException throwaway) {
         }
     }
 
@@ -2470,7 +2470,7 @@ class Thread implements Runnable {
                 nativeThread.Resume();
             }
         }
-        catch (cli.System.Threading.ThreadStateException _) {
+        catch (cli.System.Threading.ThreadStateException throwaway) {
         }
     }
 
@@ -2528,7 +2528,7 @@ class Thread implements Runnable {
             try {
                 getUncaughtExceptionHandler().uncaughtException(this, x);
             }
-            catch (Throwable _) {
+            catch (Throwable throwaway1) {
             }
         }
     }
@@ -2573,7 +2573,7 @@ class Thread implements Runnable {
                 cli.System.Threading.Monitor.Wait(o, (int)Math.min(timeout, Integer.MAX_VALUE));
             }
         }
-        catch (cli.System.Threading.ThreadInterruptedException _) {
+        catch (cli.System.Threading.ThreadInterruptedException throwaway) {
         }
         finally {
             t.leaveInterruptableWait();
@@ -2586,7 +2586,7 @@ class Thread implements Runnable {
             try {
                 if (false) throw new cli.System.InvalidOperationException();
                 thread.set_Name(name);
-            } catch (cli.System.InvalidOperationException _) {
+            } catch (cli.System.InvalidOperationException throwaway) {
             }
         }
     }

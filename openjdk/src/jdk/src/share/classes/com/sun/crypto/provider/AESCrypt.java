@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2002, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -37,7 +37,7 @@
 package com.sun.crypto.provider;
 
 import java.security.InvalidKeyException;
-import java.util.Arrays;
+import java.security.MessageDigest;
 
 /**
  * Rijndael --pronounced Reindaal-- is a symmetric cipher with a 128-bit
@@ -52,7 +52,7 @@ final class AESCrypt extends SymmetricCipher implements AESConstants
     private boolean ROUNDS_14 = false;
 
     /** Session and Sub keys */
-    private Object[] sessionK = null;
+    private int[][] sessionK = null;
     private int[] K = null;
 
     /** Cipher encryption/decryption key */
@@ -88,14 +88,14 @@ final class AESCrypt extends SymmetricCipher implements AESConstants
                 key.length + " bytes");
         }
 
-        if (!Arrays.equals(key, lastKey)) {
+        if (!MessageDigest.isEqual(key, lastKey)) {
             // re-generate session key 'sessionK' when cipher key changes
             makeSessionKey(key);
             lastKey = key.clone();  // save cipher key
         }
 
         // set sub key to the corresponding session Key
-        this.K = (int[]) sessionK[(decrypting? 1:0)];
+        this.K = sessionK[(decrypting? 1:0)];
     }
 
     /**
@@ -346,7 +346,15 @@ final class AESCrypt extends SymmetricCipher implements AESConstants
      * Encrypt exactly one block of plaintext.
      */
     void encryptBlock(byte[] in, int inOffset,
-                              byte[] out, int outOffset)
+                      byte[] out, int outOffset) {
+        // Array bound checks are done in caller code, i.e.
+        // FeedbackCipher.encrypt/decrypt(...) to improve performance.
+        implEncryptBlock(in, inOffset, out, outOffset);
+    }
+
+    // Encryption operation. Possibly replaced with a compiler intrinsic.
+    private void implEncryptBlock(byte[] in, int inOffset,
+                                  byte[] out, int outOffset)
     {
         int keyOffset = 0;
         int t0   = ((in[inOffset++]       ) << 24 |
@@ -412,12 +420,19 @@ final class AESCrypt extends SymmetricCipher implements AESConstants
         out[outOffset  ] = (byte)(S[(t2       ) & 0xFF] ^ (tt       ));
     }
 
-
     /**
      * Decrypt exactly one block of plaintext.
      */
     void decryptBlock(byte[] in, int inOffset,
-                              byte[] out, int outOffset)
+                      byte[] out, int outOffset) {
+        // Array bound checks are done in caller code, i.e.
+        // FeedbackCipher.encrypt/decrypt(...) to improve performance.
+        implDecryptBlock(in, inOffset, out, outOffset);
+    }
+
+    // Decrypt operation. Possibly replaced with a compiler intrinsic.
+    private void implDecryptBlock(byte[] in, int inOffset,
+                                  byte[] out, int outOffset)
     {
         int keyOffset = 4;
         int t0 = ((in[inOffset++]       ) << 24 |
@@ -572,7 +587,6 @@ final class AESCrypt extends SymmetricCipher implements AESConstants
         out[outOffset  ] = (byte)(Si[(a0       ) & 0xFF] ^ (t1       ));
     }
 
-
     /**
      * Expand a user-supplied key material into a session key.
      *
@@ -660,7 +674,7 @@ final class AESCrypt extends SymmetricCipher implements AESConstants
         limit = ROUNDS*4;
 
         // store the expanded sub keys into 'sessionK'
-        sessionK = new Object[] { expandedKe, expandedKd };
+        sessionK = new int[][] { expandedKe, expandedKd };
     }
 
 

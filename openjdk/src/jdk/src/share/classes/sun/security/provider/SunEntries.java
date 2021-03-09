@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1996, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -29,6 +29,7 @@ import java.io.*;
 import java.net.*;
 import java.util.Map;
 import java.security.*;
+import sun.security.action.GetPropertyAction;
 
 /**
  * Defines the entries of the SUN provider.
@@ -64,7 +65,7 @@ import java.security.*;
  *   and CRLs. Aliases for X.509 are X509.
  *
  * - PKIX is the certification path validation algorithm described
- *   in RFC 3280. The ValidationAlgorithm attribute notes the
+ *   in RFC 5280. The ValidationAlgorithm attribute notes the
  *   specification that this provider implements.
  *
  * - LDAP is the CertStore type for LDAP repositories. The
@@ -77,6 +78,10 @@ import java.security.*;
  */
 
 final class SunEntries {
+
+    private static final boolean useLegacyDSA =
+        Boolean.parseBoolean(GetPropertyAction.privilegedGetProperty
+            ("jdk.security.legacyDSAKeyPairGenerator"));
 
     private SunEntries() {
         // empty
@@ -101,6 +106,7 @@ final class SunEntries {
             map.put("SecureRandom.NativePRNG",
                 "sun.security.provider.NativePRNG");
         }
+
         map.put("SecureRandom.SHA1PRNG",
              "sun.security.provider.SecureRandom");
         if (nativeAvailable && !useNativePRNG) {
@@ -159,8 +165,9 @@ final class SunEntries {
         /*
          *  Key Pair Generator engines
          */
-        map.put("KeyPairGenerator.DSA",
-            "sun.security.provider.DSAKeyPairGenerator");
+        String dsaKPGImplClass = "sun.security.provider.DSAKeyPairGenerator$";
+        dsaKPGImplClass += (useLegacyDSA? "Legacy" : "Current");
+        map.put("KeyPairGenerator.DSA", dsaKPGImplClass);
         map.put("Alg.Alias.KeyPairGenerator.OID.1.2.840.10040.4.1", "DSA");
         map.put("Alg.Alias.KeyPairGenerator.1.2.840.10040.4.1", "DSA");
         map.put("Alg.Alias.KeyPairGenerator.1.3.14.3.2.12", "DSA");
@@ -194,6 +201,14 @@ final class SunEntries {
         map.put("Alg.Alias.MessageDigest.2.16.840.1.101.3.4.2.3", "SHA-512");
         map.put("Alg.Alias.MessageDigest.OID.2.16.840.1.101.3.4.2.3",
                 "SHA-512");
+        map.put("MessageDigest.SHA-512/224", "sun.security.provider.SHA5$SHA512_224");
+        map.put("Alg.Alias.MessageDigest.2.16.840.1.101.3.4.2.5", "SHA-512/224");
+        map.put("Alg.Alias.MessageDigest.OID.2.16.840.1.101.3.4.2.5",
+                "SHA-512/224");
+        map.put("MessageDigest.SHA-512/256", "sun.security.provider.SHA5$SHA512_256");
+        map.put("Alg.Alias.MessageDigest.2.16.840.1.101.3.4.2.6", "SHA-512/256");
+        map.put("Alg.Alias.MessageDigest.OID.2.16.840.1.101.3.4.2.6",
+                "SHA-512/256");
 
         /*
          * Algorithm Parameter Generator engines
@@ -228,7 +243,8 @@ final class SunEntries {
         /*
          * KeyStore
          */
-        map.put("KeyStore.JKS", "sun.security.provider.JavaKeyStore$JKS");
+        map.put("KeyStore.JKS",
+                        "sun.security.provider.JavaKeyStore$DualFormatJKS");
         map.put("KeyStore.CaseExactJKS",
                         "sun.security.provider.JavaKeyStore$CaseExactJKS");
         map.put("KeyStore.DKS", "sun.security.provider.DomainKeyStore$DKS");
@@ -250,7 +266,7 @@ final class SunEntries {
         map.put("CertPathBuilder.PKIX",
             "sun.security.provider.certpath.SunCertPathBuilder");
         map.put("CertPathBuilder.PKIX ValidationAlgorithm",
-            "RFC3280");
+            "RFC5280");
 
         /*
          * CertPathValidator
@@ -258,7 +274,7 @@ final class SunEntries {
         map.put("CertPathValidator.PKIX",
             "sun.security.provider.certpath.PKIXCertPathValidator");
         map.put("CertPathValidator.PKIX ValidationAlgorithm",
-            "RFC3280");
+            "RFC5280");
 
         /*
          * CertStores

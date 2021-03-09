@@ -149,13 +149,17 @@ class DualStackPlainDatagramSocketImpl extends AbstractPlainDatagramSocketImpl
 
         socketDisconnect(fd.getSocket());
     }
+	
+	private final Object anticlosinglock = new String("");
 
     protected void datagramSocketClose() {
-        if (fd == null || !fd.valid())
-            return;   // close doesn't throw any exceptions
+		synchronized(anticlosinglock){
+			if (fd == null || !fd.valid())
+				return;   // close doesn't throw any exceptions
 
-        socketClose(fd.getSocket());
-        fd.setSocket(null);
+			socketClose(fd.getSocket());
+			fd.setSocket(null);
+		}
     }
 
     @SuppressWarnings("fallthrough")
@@ -558,5 +562,27 @@ class DualStackPlainDatagramSocketImpl extends AbstractPlainDatagramSocketImpl
 		}
 
 		return result[0];
+	}
+	
+	@Override int dataAvailable(){
+		//A pretty bad implementation
+		int peek = 0;
+		synchronized(anticlosinglock){
+			if (connectedAddress == null) {
+				
+			} else if (isClosed()) {
+				
+			} else{
+				try{
+					peek = peek(connectedAddress);
+				} catch (Throwable fuckingThrowable){
+					
+				}
+				if(peek != -1){
+					peek = 1;
+				}
+			}
+		}
+		return peek;
 	}
 }

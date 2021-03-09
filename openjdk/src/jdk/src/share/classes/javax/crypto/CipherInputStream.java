@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,7 +25,11 @@
 
 package javax.crypto;
 
-import java.io.*;
+import java.io.InputStream;
+import java.io.FilterInputStream;
+import java.io.IOException;
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
 
 /**
  * A CipherInputStream is composed of an InputStream and a Cipher so
@@ -46,6 +50,13 @@ import java.io.*;
  * that are not thrown by its ancestor classes.  In particular, the
  * <code>skip</code> method skips, and the <code>available</code>
  * method counts only data that have been processed by the encapsulated Cipher.
+ * This class may catch BadPaddingException and other exceptions thrown by
+ * failed integrity checks during decryption. These exceptions are not
+ * re-thrown, so the client may not be informed that integrity checks
+ * failed. Because of this behavior, this class may not be suitable
+ * for use with decryption in an authenticated mode of operation (e.g. GCM).
+ * Applications that require authenticated encryption can use the Cipher API
+ * directly as an alternative to using this class.
  *
  * <p> It is crucial for a programmer using this class not to use
  * methods that are not defined or overriden in this class (such as a
@@ -88,8 +99,6 @@ public class CipherInputStream extends FilterInputStream {
     private int ofinish = 0;
     // stream status
     private boolean closed = false;
-    // The stream has been read from.  False if the stream has never been read.
-    private boolean read = false;
 
     /**
      * private convenience function.
@@ -101,11 +110,15 @@ public class CipherInputStream extends FilterInputStream {
      * return (ofinish-ostart) (we have this many bytes for you)
      * return 0 (no data now, but could have more later)
      * return -1 (absolutely no more data)
+     *
+     * Note:  Exceptions are only thrown after the stream is completely read.
+     * For AEAD ciphers a read() of any length will internally cause the
+     * whole stream to be read fully and verify the authentication tag before
+     * returning decrypted data or exceptions.
      */
     private int getMoreData() throws IOException {
         if (done) return -1;
         int readin = input.read(ibuffer);
-        read = true;
         if (readin == -1) {
             done = true;
             try {
@@ -308,17 +321,16 @@ public class CipherInputStream extends FilterInputStream {
 
         closed = true;
         input.close();
-        try {
-            // throw away the unprocessed data
-            if (!done) {
+
+        // Throw away the unprocessed data and throw no crypto exceptions.
+        // AEAD ciphers are fully readed before closing.  Any authentication
+        // exceptions would occur while reading.
+        if (!done) {
+            try {
                 cipher.doFinal();
             }
-        }
-        catch (BadPaddingException | IllegalBlockSizeException ex) {
-            /* If no data has been read from the stream to be en/decrypted,
-               we supress any exceptions, and close quietly. */
-            if (read) {
-                throw new IOException(ex);
+            catch (BadPaddingException | IllegalBlockSizeException ex) {
+                // Catch exceptions as the rest of the stream is unused.
             }
         }
         ostart = 0;

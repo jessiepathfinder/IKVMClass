@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2015, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,6 +25,7 @@
 
 package com.sun.crypto.provider;
 
+import java.security.MessageDigest;
 import java.security.KeyRep;
 import java.security.InvalidKeyException;
 import javax.crypto.SecretKey;
@@ -77,7 +78,7 @@ final class DESedeKey implements SecretKey {
         DESKeyGenerator.setParityBit(this.key, 16);
     }
 
-    public byte[] getEncoded() {
+    public synchronized byte[] getEncoded() {
         return this.key.clone();
     }
 
@@ -114,7 +115,7 @@ final class DESedeKey implements SecretKey {
             return false;
 
         byte[] thatKey = ((SecretKey)obj).getEncoded();
-        boolean ret = java.util.Arrays.equals(this.key, thatKey);
+        boolean ret = MessageDigest.isEqual(this.key, thatKey);
         java.util.Arrays.fill(thatKey, (byte)0x00);
         return ret;
     }
@@ -151,9 +152,11 @@ final class DESedeKey implements SecretKey {
      */
     protected void finalize() throws Throwable {
         try {
-            if (this.key != null) {
-                java.util.Arrays.fill(this.key, (byte)0x00);
-                this.key = null;
+            synchronized (this) {
+                if (this.key != null) {
+                    java.util.Arrays.fill(this.key, (byte)0x00);
+                    this.key = null;
+                }
             }
         } finally {
             super.finalize();

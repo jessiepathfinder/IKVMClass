@@ -40,7 +40,7 @@ import java.io.IOException;
 /**
  * Implements the ASN.1 KDCOptions type.
  *
- * <xmp>
+ * <pre>{@code
  * KDCOptions   ::= KerberosFlags
  *      -- reserved(0),
  *      -- forwardable(1),
@@ -69,7 +69,7 @@ import java.io.IOException;
  *                      -- minimum number of bits shall be sent,
  *                      -- but no fewer than 32
  *
- * </xmp>
+ * }</pre>
  *
  * <p>
  * This definition reflects the Network Working Group RFC 4120
@@ -115,7 +115,7 @@ import java.io.IOException;
  * in the addresses field of the request.
  * <li>FORWARDED, PROXY, ENC_TKT_IN_SKEY, RENEW, VALIDATE are used only in
  * subsequent requests.
- * </ol><p>
+ * </ol>
  */
 
 public class KDCOptions extends KerberosFlags {
@@ -140,6 +140,7 @@ public class KDCOptions extends KerberosFlags {
     public static final int UNUSED10        = 10;
     public static final int UNUSED11        = 11;
     public static final int CNAME_IN_ADDL_TKT = 14;
+    public static final int CANONICALIZE    = 15;
     public static final int RENEWABLE_OK    = 27;
     public static final int ENC_TKT_IN_SKEY = 28;
     public static final int RENEW           = 30;
@@ -160,7 +161,8 @@ public class KDCOptions extends KerberosFlags {
         "UNUSED11",         //11;
         null,null,
         "CNAME_IN_ADDL_TKT",//14;
-        null,null,null,null,null,null,null,null,null,null,null,null,
+        "CANONICALIZE",     //15;
+        null,null,null,null,null,null,null,null,null,null,null,
         "RENEWABLE_OK",     //27;
         "ENC_TKT_IN_SKEY",  //28;
         null,

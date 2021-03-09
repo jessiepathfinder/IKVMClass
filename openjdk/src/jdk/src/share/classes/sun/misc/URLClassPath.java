@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -37,6 +37,7 @@ import java.util.jar.Attributes;
 import java.util.jar.Attributes.Name;
 import java.net.JarURLConnection;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.net.URLConnection;
@@ -44,6 +45,7 @@ import java.net.HttpURLConnection;
 import java.net.URLStreamHandler;
 import java.net.URLStreamHandlerFactory;
 import java.io.*;
+import java.security.AccessControlContext;
 import java.security.AccessController;
 import java.security.AccessControlException;
 import java.security.CodeSigner;
@@ -67,6 +69,9 @@ public class URLClassPath {
     private static final boolean DEBUG;
     private static final boolean DEBUG_LOOKUP_CACHE;
     private static final boolean DISABLE_JAR_CHECKING;
+    private static final boolean DISABLE_ACC_CHECKING;
+    private static final boolean DISABLE_CP_URL_CHECK;
+    private static final boolean DEBUG_CP_URL_CHECK;
 
     static {
         JAVA_VERSION = java.security.AccessController.doPrivileged(
@@ -78,6 +83,17 @@ public class URLClassPath {
         String p = java.security.AccessController.doPrivileged(
             new GetPropertyAction("sun.misc.URLClassPath.disableJarChecking"));
         DISABLE_JAR_CHECKING = p != null ? p.equals("true") || p.equals("") : false;
+
+        p = AccessController.doPrivileged(
+            new GetPropertyAction("jdk.net.URLClassPath.disableRestrictedPermissions"));
+        DISABLE_ACC_CHECKING = p != null ? p.equals("true") || p.equals("") : false;
+
+        // This property will be removed in a later release
+        p = AccessController.doPrivileged(
+            new GetPropertyAction("jdk.net.URLClassPath.disableClassPathURLCheck", "true"));
+
+        DISABLE_CP_URL_CHECK = p != null ? p.equals("true") || p.isEmpty() : false;
+        DEBUG_CP_URL_CHECK = "debug".equals(p);
     }
 
     /* The original search path of URLs. */
@@ -98,6 +114,11 @@ public class URLClassPath {
     /* Whether this URLClassLoader has been closed yet */
     private boolean closed = false;
 
+    /* The context to be used when loading classes and resources.  If non-null
+     * this is the context that was captured during the creation of the
+     * URLClassLoader. null implies no additional security restrictions. */
+    private final AccessControlContext acc;
+
     /**
      * Creates a new URLClassPath for the given URLs. The URLs will be
      * searched in the order specified for classes and resources. A URL
@@ -107,8 +128,12 @@ public class URLClassPath {
      * @param urls the directory and JAR file URLs to search for classes
      *        and resources
      * @param factory the URLStreamHandlerFactory to use when creating new URLs
+     * @param acc the context to be used when loading classes and resources, may
+     *            be null
      */
-    public URLClassPath(URL[] urls, URLStreamHandlerFactory factory) {
+    public URLClassPath(URL[] urls,
+                        URLStreamHandlerFactory factory,
+                        AccessControlContext acc) {
         for (int i = 0; i < urls.length; i++) {
             path.add(urls[i]);
         }
@@ -116,10 +141,22 @@ public class URLClassPath {
         if (factory != null) {
             jarHandler = factory.createURLStreamHandler("jar");
         }
+        if (DISABLE_ACC_CHECKING)
+            this.acc = null;
+        else
+            this.acc = acc;
     }
 
+    /**
+     * Constructs a URLClassPath with no additional security restrictions.
+     * Used by code that implements the class path.
+     */
     public URLClassPath(URL[] urls) {
-        this(urls, null);
+        this(urls, null, null);
+    }
+
+    public URLClassPath(URL[] urls, AccessControlContext acc) {
+        this(urls, null, acc);
     }
 
     public synchronized List<IOException> closeLoaders() {
@@ -499,6 +536,14 @@ public class URLClassPath {
             } catch (IOException e) {
                 // Silently ignore for now...
                 continue;
+            } catch (SecurityException se) {
+                // Always silently ignore. The context, if there is one, that
+                // this URLClassPath was given during construction will never
+                // have permission to access the URL.
+                if (DEBUG) {
+                    System.err.println("Failed to access " + url + ", " + se );
+                }
+                continue;
             }
             // Finally, add the Loader to the search path.
             validateLookupCache(loaders.size(), urlNoFragString);
@@ -527,10 +572,10 @@ public class URLClassPath {
                             return new Loader(url);
                         }
                     } else {
-                        return new JarLoader(url, jarHandler, lmap);
+                        return new JarLoader(url, jarHandler, lmap, acc);
                     }
                 }
-            });
+            }, acc);
         } catch (java.security.PrivilegedActionException pae) {
             throw (IOException)pae.getException();
         }
@@ -755,11 +800,12 @@ public class URLClassPath {
      */
     static class JarLoader extends Loader {
         private JarFile jar;
-        private URL csu;
+        private final URL csu;
         private JarIndex index;
         private MetaIndex metaIndex;
         private URLStreamHandler handler;
-        private HashMap<String, Loader> lmap;
+        private final HashMap<String, Loader> lmap;
+        private final AccessControlContext acc;
         private boolean closed = false;
         private static final sun.misc.JavaUtilZipFileAccess zipAccess =
                 sun.misc.SharedSecrets.getJavaUtilZipFileAccess();
@@ -769,13 +815,15 @@ public class URLClassPath {
          * a JAR file.
          */
         JarLoader(URL url, URLStreamHandler jarHandler,
-                  HashMap<String, Loader> loaderMap)
+                  HashMap<String, Loader> loaderMap,
+                  AccessControlContext acc)
             throws IOException
         {
             super(new URL("jar", "", -1, url + "!/", jarHandler));
             csu = url;
             handler = jarHandler;
             lmap = loaderMap;
+            this.acc = acc;
 
             if (!isOptimizable(url)) {
                 ensureOpen();
@@ -859,8 +907,7 @@ public class URLClassPath {
                                 }
                                 return null;
                             }
-                        }
-                    );
+                        }, acc);
                 } catch (java.security.PrivilegedActionException pae) {
                     throw (IOException)pae.getException();
                 }
@@ -940,8 +987,10 @@ public class URLClassPath {
                     { return jar.getInputStream(entry); }
                 public int getContentLength()
                     { return (int)entry.getSize(); }
-                public Manifest getManifest() throws IOException
-                    { return jar.getManifest(); };
+                public Manifest getManifest() throws IOException {
+                    SharedSecrets.javaUtilJarAccess().ensureInitialization(jar);
+                    return jar.getManifest();
+                }
                 public Certificate[] getCertificates()
                     { return entry.getCertificates(); };
                 public CodeSigner[] getCodeSigners()
@@ -1054,9 +1103,9 @@ public class URLClassPath {
                                 new PrivilegedExceptionAction<JarLoader>() {
                                     public JarLoader run() throws IOException {
                                         return new JarLoader(url, handler,
-                                            lmap);
+                                            lmap, acc);
                                     }
-                                });
+                                }, acc);
 
                             /* this newly opened jar file has its own index,
                              * merge it into the parent's index, taking into
@@ -1180,10 +1229,93 @@ public class URLClassPath {
             int i = 0;
             while (st.hasMoreTokens()) {
                 String path = st.nextToken();
-                urls[i] = new URL(base, path);
-                i++;
+                URL url = DISABLE_CP_URL_CHECK ? new URL(base, path) : tryResolve(base, path);
+                if (url != null) {
+                    urls[i] = url;
+                    i++;
+                } else {
+                    if (DEBUG_CP_URL_CHECK) {
+                        System.err.println("Class-Path entry: \"" + path
+                                           + "\" ignored in JAR file " + base);
+                    }
+                }
+            }
+            if (i == 0) {
+                urls = null;
+            } else if (i != urls.length) {
+                // Truncate nulls from end of array
+                urls = Arrays.copyOf(urls, i);
             }
             return urls;
+        }
+
+        static URL tryResolve(URL base, String input) throws MalformedURLException {
+            if ("file".equalsIgnoreCase(base.getProtocol())) {
+                return tryResolveFile(base, input);
+            } else {
+                return tryResolveNonFile(base, input);
+            }
+        }
+
+        /**
+         * Attempt to return a file URL by resolving input against a base file
+         * URL. The input is an absolute or relative file URL that encodes a
+         * file path.
+         *
+         * @apiNote Nonsensical input such as a Windows file path with a drive
+         * letter cannot be disambiguated from an absolute URL so will be rejected
+         * (by returning null) by this method.
+         *
+         * @return the resolved URL or null if the input is an absolute URL with
+         *         a scheme other than file (ignoring case)
+         * @throws MalformedURLException
+         */
+        static URL tryResolveFile(URL base, String input) throws MalformedURLException {
+            int index = input.indexOf(':');
+            boolean isFile;
+            if (index >= 0) {
+                String scheme = input.substring(0, index);
+                isFile = "file".equalsIgnoreCase(scheme);
+            } else {
+                isFile = true;
+            }
+            return (isFile) ? new URL(base, input) : null;
+        }
+
+        /**
+         * Attempt to return a URL by resolving input against a base URL. Returns
+         * null if the resolved URL is not contained by the base URL.
+         *
+         * @return the resolved URL or null
+         * @throws MalformedURLException
+         */
+        static URL tryResolveNonFile(URL base, String input) throws MalformedURLException {
+            String child = input.replace(File.separatorChar, '/');
+            if (isRelative(child)) {
+                URL url = new URL(base, child);
+                String bp = base.getPath();
+                String urlp = url.getPath();
+                int pos = bp.lastIndexOf('/');
+                if (pos == -1) {
+                    pos = bp.length() - 1;
+                }
+                if (urlp.regionMatches(0, bp, 0, pos + 1)
+                        && urlp.indexOf("..", pos) == -1) {
+                    return url;
+                }
+            }
+            return null;
+        }
+
+        /**
+         * Returns true if the given input is a relative URI.
+         */
+        static boolean isRelative(String child) {
+            try {
+                return !URI.create(child).isAbsolute();
+            } catch (IllegalArgumentException e) {
+                return false;
+            }
         }
     }
 

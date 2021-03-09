@@ -219,7 +219,7 @@ public class WindowsAsynchronousFileChannelImpl
                         fs.Lock(position, fli.size());
                         result.setResult(fli);
                         break;
-                    } catch (cli.System.IO.IOException _) {
+                    } catch (cli.System.IO.IOException throwaway) {
                         // we failed to acquire the lock, try again next iteration
                     }
                 } catch (Throwable x) {
@@ -335,7 +335,7 @@ public class WindowsAsynchronousFileChannelImpl
                 FileStream fs = (FileStream)fdObj.getStream();
                 fs.Lock(position, size);
                 res = LOCKED;
-            } catch (cli.System.IO.IOException _) {
+            } catch (cli.System.IO.IOException throwaway) {
                 res = NO_LOCK;
             }
             if (res == NO_LOCK)

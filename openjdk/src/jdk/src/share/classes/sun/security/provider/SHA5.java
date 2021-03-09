@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2002, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,8 +25,8 @@
 
 package sun.security.provider;
 
-import java.security.*;
-import java.math.BigInteger;
+import java.util.Arrays;
+import java.util.Objects;
 
 import static sun.security.provider.ByteArrayAccess.*;
 
@@ -98,10 +98,15 @@ abstract class SHA5 extends DigestBase {
         this.initialHashes = initialHashes;
         state = new long[8];
         W = new long[80];
-        implReset();
+        resetHashes();
     }
 
     final void implReset() {
+        resetHashes();
+        Arrays.fill(W, 0L);
+    }
+
+    private void resetHashes() {
         System.arraycopy(initialHashes, 0, state, 0, state.length);
     }
 
@@ -116,7 +121,14 @@ abstract class SHA5 extends DigestBase {
         i2bBig4((int)bitsProcessed, buffer, 124);
         implCompress(buffer, 0);
 
-        l2bBig(state, 0, out, ofs, engineGetDigestLength());
+        int len = engineGetDigestLength();
+        if (len == 28) {
+            // Special case for SHA-512/224
+            l2bBig(state, 0, out, ofs, 24);
+            i2bBig4((int)(state[3] >> 32), out, ofs + 24);
+        } else {
+            l2bBig(state, 0, out, ofs, len);
+        }
     }
 
     /**
@@ -205,8 +217,26 @@ abstract class SHA5 extends DigestBase {
      * "old" NIST Secure Hash Algorithm.
      */
     final void implCompress(byte[] buf, int ofs) {
-        b2lBig128(buf, ofs, W);
+        implCompressCheck(buf, ofs);
+        implCompress0(buf, ofs);
+    }
 
+    private void implCompressCheck(byte[] buf, int ofs) {
+        Objects.requireNonNull(buf);
+
+        // The checks performed by the method 'b2iBig128'
+        // are sufficient for the case when the method
+        // 'implCompressImpl' is replaced with a compiler
+        // intrinsic.
+        b2lBig128(buf, ofs, W);
+    }
+
+    // The method 'implCompressImpl' seems not to use its parameters.
+    // The method can, however, be replaced with a compiler intrinsic
+    // that operates directly on the array 'buf' (starting from
+    // offset 'ofs') and not on array 'W', therefore 'buf' and 'ofs'
+    // must be passed as parameter to the method.
+    private final void implCompress0(byte[] buf, int ofs) {
         // The first 16 longs are from the byte stream, compute the rest of
         // the W[]'s
         for (int t = 16; t < ITERATION; t++) {
@@ -283,6 +313,33 @@ abstract class SHA5 extends DigestBase {
 
         public SHA384() {
             super("SHA-384", 48, INITIAL_HASHES);
+        }
+    }
+    public static final class SHA512_224 extends SHA5 {
+
+        private static final long[] INITIAL_HASHES = {
+                0x8C3D37C819544DA2L, 0x73E1996689DCD4D6L,
+                0x1DFAB7AE32FF9C82L, 0x679DD514582F9FCFL,
+                0x0F6D2B697BD44DA8L, 0x77E36F7304C48942L,
+                0x3F9D85A86A1D36C8L, 0x1112E6AD91D692A1L
+        };
+
+        public SHA512_224() {
+            super("SHA-512/224", 28, INITIAL_HASHES);
+        }
+    }
+
+    public static final class SHA512_256 extends SHA5 {
+
+        private static final long[] INITIAL_HASHES = {
+                0x22312194FC2BF72CL, 0x9F555FA3C84C64C2L,
+                0x2393B86B6F53B151L, 0x963877195940EABDL,
+                0x96283EE2A88EFFE3L, 0xBE5E1E2553863992L,
+                0x2B0199FC2C85B8AAL, 0x0EB72DDC81C52CA2L
+        };
+
+        public SHA512_256() {
+            super("SHA-512/256", 32, INITIAL_HASHES);
         }
     }
 }

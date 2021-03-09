@@ -83,7 +83,7 @@ class PlainSocketImpl extends AbstractPlainSocketImpl
                 } else {
                     useDualStackImpl = true;
                 }
-            } catch (NumberFormatException _) {
+            } catch (NumberFormatException throwaway) {
             }
         } else if (!InetAddressImplFactory.isIPv6Supported()) {
             preferIPv4Stack = true;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -123,8 +123,9 @@ import sun.misc.HexDumpEncoder;
  * must also be set to true; Otherwise a configuration error will
  * be returned.</dd>
  * <dt><b><code>renewTGT</code></b>:</dt>
- * <dd>Set this to true, if you want to renew
- * the TGT. If this is set, <code>useTicketCache</code> must also be
+ * <dd>Set this to true, if you want to renew the TGT when it's more than
+ * half-way expired (the time until expiration is less than the time
+ * since start time). If this is set, {@code useTicketCache} must also be
  * set to true; otherwise a configuration error will be returned.</dd>
  * <dt><b><code>doNotPrompt</code></b>:</dt>
  * <dd>Set this to true if you do not want to be
@@ -665,17 +666,20 @@ public class Krb5LoginModule implements LoginModule {
                     (principal, ticketCacheName);
 
                 if (cred != null) {
-                    // check to renew credentials
-                    if (!isCurrent(cred)) {
-                        if (renewTGT) {
-                            cred = renewCredentials(cred);
-                        } else {
-                            // credentials have expired
-                            cred = null;
-                            if (debug)
-                                System.out.println("Credentials are" +
-                                                " no longer valid");
+                    if (renewTGT && isOld(cred)) {
+                        // renew if ticket is old.
+                        Credentials newCred = renewCredentials(cred);
+                        if (newCred != null) {
+                            newCred.setProxy(cred.getProxy());
+                            cred = newCred;
                         }
+                    }
+                    if (!isCurrent(cred)) {
+                        // credentials have expired
+                        cred = null;
+                        if (debug)
+                            System.out.println("Credentials are" +
+                                    " no longer valid");
                     }
                 }
 
@@ -984,13 +988,30 @@ public class Krb5LoginModule implements LoginModule {
         }
     }
 
-    private boolean isCurrent(Credentials creds)
+    private static boolean isCurrent(Credentials creds)
     {
         Date endTime = creds.getEndTime();
         if (endTime != null) {
             return (System.currentTimeMillis() <= endTime.getTime());
         }
         return true;
+    }
+
+    private static boolean isOld(Credentials creds)
+    {
+        Date endTime = creds.getEndTime();
+        if (endTime != null) {
+            Date authTime = creds.getAuthTime();
+            long now = System.currentTimeMillis();
+            if (authTime != null) {
+                // pass the mid between auth and end
+                return now - authTime.getTime() > endTime.getTime() - now;
+            } else {
+                // will expire in less than 2 hours
+                return now <= endTime.getTime() - 1000*3600*2L;
+            }
+        }
+        return false;
     }
 
     private Credentials renewCredentials(Credentials creds)
@@ -1000,6 +1021,10 @@ public class Krb5LoginModule implements LoginModule {
             if (!creds.isRenewable())
                 throw new RefreshFailedException("This ticket" +
                                 " is not renewable");
+            if (creds.getRenewTill() == null) {
+                // Renewable ticket without renew-till. Illegal and ignored.
+                return creds;
+            }
             if (System.currentTimeMillis() > cred.getRenewTill().getTime())
                 throw new RefreshFailedException("This ticket is past "
                                              + "its last renewal time.");
@@ -1074,6 +1099,10 @@ public class Krb5LoginModule implements LoginModule {
             // create Kerberos Ticket
             if (isInitiator) {
                 kerbTicket = Krb5Util.credsToTicket(cred);
+                if (cred.getProxy() != null) {
+                    KerberosSecrets.getJavaxSecurityAuthKerberosAccess()
+                            .kerberosTicketSetProxy(kerbTicket,Krb5Util.credsToTicket(cred.getProxy()));
+                }
             }
 
             if (storeKey && encKeys != null) {

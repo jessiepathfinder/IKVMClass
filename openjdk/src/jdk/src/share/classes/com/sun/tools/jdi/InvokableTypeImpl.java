@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -236,6 +236,7 @@ abstract class InvokableTypeImpl extends ReferenceTypeImpl {
                                            final MethodImpl method,
                                            final ValueImpl[] args,
                                            final int options) {
+
         CommandSender sender = getInvokeMethodSender(thread, method, args, options);
         PacketStream stream;
         if ((options & ClassType.INVOKE_SINGLE_THREADED) != 0) {

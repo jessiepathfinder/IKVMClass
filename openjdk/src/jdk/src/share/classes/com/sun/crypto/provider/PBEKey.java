@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,8 +25,11 @@
 
 package com.sun.crypto.provider;
 
+import java.security.MessageDigest;
 import java.security.KeyRep;
 import java.security.spec.InvalidKeySpecException;
+import java.util.Arrays;
+import java.util.Locale;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.PBEKeySpec;
 
@@ -66,11 +69,11 @@ final class PBEKey implements SecretKey {
         this.key = new byte[passwd.length];
         for (int i=0; i<passwd.length; i++)
             this.key[i] = (byte) (passwd[i] & 0x7f);
-        java.util.Arrays.fill(passwd, ' ');
+        Arrays.fill(passwd, '\0');
         type = keytype;
     }
 
-    public byte[] getEncoded() {
+    public synchronized byte[] getEncoded() {
         return this.key.clone();
     }
 
@@ -91,7 +94,7 @@ final class PBEKey implements SecretKey {
         for (int i = 1; i < this.key.length; i++) {
             retval += this.key[i] * i;
         }
-        return(retval ^= getAlgorithm().toLowerCase().hashCode());
+        return(retval ^= getAlgorithm().toLowerCase(Locale.ENGLISH).hashCode());
     }
 
     public boolean equals(Object obj) {
@@ -107,9 +110,21 @@ final class PBEKey implements SecretKey {
             return false;
 
         byte[] thatEncoded = that.getEncoded();
-        boolean ret = java.util.Arrays.equals(this.key, thatEncoded);
-        java.util.Arrays.fill(thatEncoded, (byte)0x00);
+        boolean ret = MessageDigest.isEqual(this.key, thatEncoded);
+        Arrays.fill(thatEncoded, (byte)0x00);
         return ret;
+    }
+
+    /**
+     * Clears the internal copy of the key.
+     *
+     */
+    @Override
+    public void destroy() {
+        if (key != null) {
+            Arrays.fill(key, (byte)0x00);
+            key = null;
+        }
     }
 
     /**
@@ -145,9 +160,11 @@ final class PBEKey implements SecretKey {
      */
     protected void finalize() throws Throwable {
         try {
-            if (this.key != null) {
-                java.util.Arrays.fill(this.key, (byte)0x00);
-                this.key = null;
+            synchronized (this) {
+                if (this.key != null) {
+                    java.util.Arrays.fill(this.key, (byte)0x00);
+                    this.key = null;
+                }
             }
         } finally {
             super.finalize();

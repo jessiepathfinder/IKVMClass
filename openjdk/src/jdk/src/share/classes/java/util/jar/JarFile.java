@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -191,10 +191,10 @@ class JarFile extends ZipFile {
             if (manEntry != null) {
                 if (verify) {
                     byte[] b = getBytes(manEntry);
-                    man = new Manifest(new ByteArrayInputStream(b));
                     if (!jvInitialized) {
                         jv = new JarVerifier(b);
                     }
+                    man = new Manifest(jv, new ByteArrayInputStream(b));
                 } else {
                     man = new Manifest(super.getInputStream(manEntry));
                 }
@@ -422,7 +422,12 @@ class JarFile extends ZipFile {
      */
     private byte[] getBytes(ZipEntry ze) throws IOException {
         try (InputStream is = super.getInputStream(ze)) {
-            return IOUtils.readFully(is, (int)ze.getSize(), true);
+            int len = (int)ze.getSize();
+            byte[] b = IOUtils.readAllBytes(is);
+            if (len != -1 && b.length != len)
+                throw new EOFException("Expected:" + len + ", read:" + b.length);
+
+            return b;
         }
     }
 
@@ -602,7 +607,7 @@ class JarFile extends ZipFile {
         return false;
     }
 
-    private synchronized void ensureInitialization() {
+    synchronized void ensureInitialization() {
         try {
             maybeInstantiateVerifier();
         } catch (IOException e) {

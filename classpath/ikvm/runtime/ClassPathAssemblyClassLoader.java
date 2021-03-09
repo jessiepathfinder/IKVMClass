@@ -93,7 +93,7 @@ public final class ClassPathAssemblyClassLoader extends URLClassLoader
 	    {
 		file = file.getCanonicalFile();
 	    }
-	    catch (java.io.IOException _)
+	    catch (java.io.IOException throwaway)
 	    {
 	    }
 	    list.add(ParseUtil.fileToEncodedURL(file));

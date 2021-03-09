@@ -38,12 +38,14 @@ package sun.net.www.protocol.https;
 import java.net.URL;
 import java.net.Proxy;
 import java.net.ProtocolException;
+import java.net.MalformedURLException;
 import java.io.*;
 import javax.net.ssl.*;
 import java.security.Permission;
 import java.security.Principal;
 import java.util.Map;
 import java.util.List;
+import sun.net.util.IPAddressUtil;
 import sun.net.www.http.HttpClient;
 
 /**
@@ -79,10 +81,22 @@ public class HttpsURLConnectionImpl
         this(u, null, handler);
     }
 
+    static URL checkURL(URL u) throws IOException {
+        if (u != null) {
+            if (u.toExternalForm().indexOf('\n') > -1) {
+                throw new MalformedURLException("Illegal character in URL");
+            }
+        }
+        String s = IPAddressUtil.checkAuthority(u);
+        if (s != null) {
+            throw new MalformedURLException(s);
+        }
+        return u;
+    }
 // For both copies of the file, uncomment one line and comment the other
     HttpsURLConnectionImpl(URL u, Proxy p, Handler handler) throws IOException {
 //    HttpsURLConnectionOldImpl(URL u, Proxy p, Handler handler) throws IOException {
-        super(u);
+        super(checkURL(u));
         delegate = new DelegateHttpsURLConnection(url, p, handler, this);
     }
 
@@ -324,7 +338,7 @@ public class HttpsURLConnectionImpl
      * @param   key     the keyword by which the request is known
      *                  (e.g., "<code>accept</code>").
      * @param   value  the value associated with it.
-     * @see #getRequestProperties(java.lang.String)
+     * @see #getRequestProperty(java.lang.String)
      * @since 1.4
      */
     public void addRequestProperty(String key, String value) {

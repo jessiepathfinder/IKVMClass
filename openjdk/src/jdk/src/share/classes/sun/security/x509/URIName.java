@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -35,15 +35,15 @@ import sun.security.util.*;
  * This class implements the URIName as required by the GeneralNames
  * ASN.1 object.
  * <p>
- * [RFC3280] When the subjectAltName extension contains a URI, the name MUST be
+ * [RFC5280] When the subjectAltName extension contains a URI, the name MUST be
  * stored in the uniformResourceIdentifier (an IA5String). The name MUST
  * be a non-relative URL, and MUST follow the URL syntax and encoding
- * rules specified in [RFC 1738].  The name must include both a scheme
+ * rules specified in [RFC 3986].  The name must include both a scheme
  * (e.g., "http" or "ftp") and a scheme-specific-part.  The scheme-
  * specific-part must include a fully qualified domain name or IP
  * address as the host.
  * <p>
- * As specified in [RFC 1738], the scheme name is not case-sensitive
+ * As specified in [RFC 3986], the scheme name is not case-sensitive
  * (e.g., "http" is equivalent to "HTTP").  The host part is also not
  * case-sensitive, but other components of the scheme-specific-part may
  * be case-sensitive. When comparing URIs, conforming implementations
@@ -113,7 +113,7 @@ public class URIName implements GeneralNameInterface {
         }
 
         host = uri.getHost();
-        // RFC 3280 says that the host should be non-null, but we allow it to
+        // RFC 5280 says that the host should be non-null, but we allow it to
         // be null because some widely deployed certificates contain CDP
         // extensions with URIs that have no hostname (see bugs 4802236 and
         // 5107944).
@@ -131,13 +131,13 @@ public class URIName implements GeneralNameInterface {
                 try {
                     hostDNS = new DNSName(host);
                 } catch (IOException ioe) {
-                    // Not a valid DNS Name; see if it is a valid IPv4
+                    // Not a valid DNSName; see if it is a valid IPv4
                     // IPAddressName
                     try {
                         hostIP = new IPAddressName(host);
                     } catch (Exception ioe2) {
                         throw new IOException("invalid URI name (host " +
-                            "portion is not a valid DNS name, IPv4 address," +
+                            "portion is not a valid DNSName, IPv4 address," +
                             " or IPv6 address):" + name);
                     }
                 }
@@ -148,7 +148,7 @@ public class URIName implements GeneralNameInterface {
     /**
      * Create the URIName object with the specified name constraint. URI
      * name constraints syntax is different than SubjectAltNames, etc. See
-     * 4.2.1.11 of RFC 3280.
+     * 4.2.1.10 of RFC 5280.
      *
      * @param value the URI name constraint
      * @throws IOException if name is not a proper URI name constraint
@@ -165,7 +165,7 @@ public class URIName implements GeneralNameInterface {
             String host = uri.getSchemeSpecificPart();
             try {
                 DNSName hostDNS;
-                if (host.charAt(0) == '.') {
+                if (host.startsWith(".")) {
                     hostDNS = new DNSName(host.substring(1));
                 } else {
                     hostDNS = new DNSName(host);
@@ -300,7 +300,7 @@ public class URIName implements GeneralNameInterface {
      * These results are used in checking NameConstraints during
      * certification path verification.
      * <p>
-     * RFC3280: For URIs, the constraint applies to the host part of the name.
+     * RFC5280: For URIs, the constraint applies to the host part of the name.
      * The constraint may specify a host or a domain.  Examples would be
      * "foo.bar.com";  and ".xyz.com".  When the the constraint begins with
      * a period, it may be expanded with one or more subdomains.  That is,
@@ -339,7 +339,7 @@ public class URIName implements GeneralNameInterface {
                     // If one (or both) is an IP address, only same type
                     constraintType = NAME_SAME_TYPE;
                 } else {
-                    // Both host portions are DNS names. Are they domains?
+                    // Both host portions are DNSNames. Are they domains?
                     boolean thisDomain = (host.charAt(0) == '.');
                     boolean otherDomain = (otherHost.charAt(0) == '.');
                     DNSName otherDNS = (DNSName) otherHostObject;

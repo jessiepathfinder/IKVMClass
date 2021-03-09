@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -45,14 +45,14 @@ import sun.security.krb5.internal.util.KerberosString;
 
 /**
  * Implements the ASN.1 PrincipalName type and its realm in a single class.
- * <xmp>
+ * <pre>{@code
  *    Realm           ::= KerberosString
  *
  *    PrincipalName   ::= SEQUENCE {
  *            name-type       [0] Int32,
  *            name-string     [1] SEQUENCE OF KerberosString
  *    }
- * </xmp>
+ * }</pre>
  * This class is immutable.
  * @see Realm
  */
@@ -91,6 +91,11 @@ public class PrincipalName implements Cloneable {
     public static final int KRB_NT_UID = 5;
 
     /**
+     * Enterprise name (alias)
+     */
+    public static final int KRB_NT_ENTERPRISE = 10;
+
+    /**
      * TGS Name
      */
     public static final String TGS_DEFAULT_SRV_NAME = "krbtgt";
@@ -123,6 +128,13 @@ public class PrincipalName implements Cloneable {
      */
     private final Realm nameRealm;      // not null
 
+
+    /**
+     * When constructing a PrincipalName, whether the realm is included in
+     * the input, or deduced from default realm or domain-realm mapping.
+     */
+    private final boolean realmDeduced;
+
     // cached default salt, not used in clone
     private transient String salt = null;
 
@@ -143,16 +155,12 @@ public class PrincipalName implements Cloneable {
         this.nameType = nameType;
         this.nameStrings = nameStrings.clone();
         this.nameRealm = nameRealm;
+        this.realmDeduced = false;
     }
 
     // This method is called by Windows NativeCred.c
     public PrincipalName(String[] nameParts, String realm) throws RealmException {
         this(KRB_NT_UNKNOWN, nameParts, new Realm(realm));
-    }
-
-    public PrincipalName(String[] nameParts, int type)
-            throws IllegalArgumentException, RealmException {
-        this(type, nameParts, Realm.getDefault());
     }
 
     // Validate a nameStrings argument
@@ -211,14 +219,14 @@ public class PrincipalName implements Cloneable {
 
     /**
      * Returns the ASN.1 encoding of the
-     * <xmp>
+     * <pre>{@code
      * PrincipalName    ::= SEQUENCE {
      *          name-type       [0] Int32,
      *          name-string     [1] SEQUENCE OF KerberosString
      * }
      *
      * KerberosString   ::= GeneralString (IA5String)
-     * </xmp>
+     * }</pre>
      *
      * <p>
      * This definition reflects the Network Working Group RFC 4120
@@ -226,7 +234,7 @@ public class PrincipalName implements Cloneable {
      * <a href="http://www.ietf.org/rfc/rfc4120.txt">
      * http://www.ietf.org/rfc/rfc4120.txt</a>.
      *
-     * @param encoding a Der-encoded data.
+     * @param encoding DER-encoded PrincipalName (without Realm)
      * @param realm the realm for this name
      * @exception Asn1Exception if an error occurs while decoding
      * an ASN1 encoded data.
@@ -240,6 +248,7 @@ public class PrincipalName implements Cloneable {
         if (realm == null) {
             throw new IllegalArgumentException("Null realm not allowed");
         }
+        realmDeduced = false;
         nameRealm = realm;
         DerValue der;
         if (encoding == null) {
@@ -394,6 +403,10 @@ public class PrincipalName implements Cloneable {
         if (realm == null) {
             realm = Realm.parseRealmAtSeparator(name);
         }
+
+        // No realm info from parameter and string, must deduce later
+        realmDeduced = realm == null;
+
         switch (type) {
         case KRB_NT_SRV_HST:
             if (nameParts.length >= 2) {
@@ -413,8 +426,11 @@ public class PrincipalName implements Cloneable {
                                 hostName.toLowerCase(Locale.ENGLISH)+".")) {
                         hostName = canonicalized;
                     }
-                } catch (UnknownHostException e) {
-                    // no canonicalization, use old
+                } catch (UnknownHostException | SecurityException e) {
+                    // not canonicalized or no permission to do so, use old
+                }
+                if (hostName.endsWith(".")) {
+                    hostName = hostName.substring(0, hostName.length() - 1);
                 }
                 nameParts[1] = hostName.toLowerCase(Locale.ENGLISH);
             }
@@ -443,6 +459,7 @@ public class PrincipalName implements Cloneable {
         case KRB_NT_SRV_INST:
         case KRB_NT_SRV_XHST:
         case KRB_NT_UID:
+        case KRB_NT_ENTERPRISE:
             nameStrings = nameParts;
             nameType = type;
             if (realm != null) {
@@ -536,7 +553,9 @@ public class PrincipalName implements Cloneable {
         for (int i = 0; i < nameStrings.length; i++) {
             if (i > 0)
                 str.append("/");
-            str.append(nameStrings[i]);
+            String n = nameStrings[i];
+            n = n.replace("@", "\\@");
+            str.append(n);
         }
         str.append("@");
         str.append(nameRealm.toString());
@@ -638,7 +657,8 @@ public class PrincipalName implements Cloneable {
      * name, the second component is returned.
      * Null is returned if there are not two or more
      * components in the name.
-     * @returns instance component of a multi-component name.
+     *
+     * @return instance component of a multi-component name.
      */
     public String getInstanceComponent()
     {
@@ -680,4 +700,7 @@ public class PrincipalName implements Cloneable {
         return result;
     }
 
+    public boolean isRealmDeduced() {
+        return realmDeduced;
+    }
 }

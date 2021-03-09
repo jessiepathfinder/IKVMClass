@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1998, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,8 +26,6 @@
 package com.sun.crypto.provider;
 
 import java.io.IOException;
-import java.io.Serializable;
-import java.security.Security;
 import java.security.Key;
 import java.security.PrivateKey;
 import java.security.Provider;
@@ -35,19 +33,22 @@ import java.security.KeyFactory;
 import java.security.MessageDigest;
 import java.security.GeneralSecurityException;
 import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
 import java.security.UnrecoverableKeyException;
 import java.security.AlgorithmParameters;
+import java.security.spec.InvalidParameterSpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Arrays;
 
 import javax.crypto.Cipher;
 import javax.crypto.CipherSpi;
 import javax.crypto.SecretKey;
-import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.SealedObject;
 import javax.crypto.spec.*;
+import javax.security.auth.DestroyFailedException;
+
 import sun.security.x509.AlgorithmId;
 import sun.security.util.ObjectIdentifier;
+import sun.security.util.SecurityProperties;
 
 /**
  * This class implements a protection mechanism for private keys. In JCE, we
@@ -74,12 +75,39 @@ final class KeyProtector {
     // keys in the keystore implementation that comes with JDK 1.2)
     private static final String KEY_PROTECTOR_OID = "1.3.6.1.4.1.42.2.17.1.1";
 
+    private static final int MAX_ITERATION_COUNT = 5000000;
+    private static final int MIN_ITERATION_COUNT = 10000;
+    private static final int DEFAULT_ITERATION_COUNT = 200000;
     private static final int SALT_LEN = 20; // the salt length
     private static final int DIGEST_LEN = 20;
+    private static final int ITERATION_COUNT;
 
     // the password used for protecting/recovering keys passed through this
     // key protector
     private char[] password;
+
+    /**
+     * {@systemProperty jdk.jceks.iterationCount} property indicating the
+     * number of iterations for password-based encryption (PBE) in JCEKS
+     * keystores. Values in the range 10000 to 5000000 are considered valid.
+     * If the value is out of this range, or is not a number, or is
+     * unspecified; a default of 200000 is used.
+     */
+    static {
+        int iterationCount = DEFAULT_ITERATION_COUNT;
+        String ic = SecurityProperties.privilegedGetOverridable(
+                "jdk.jceks.iterationCount");
+        if (ic != null && !ic.isEmpty()) {
+            try {
+                iterationCount = Integer.parseInt(ic);
+                if (iterationCount < MIN_ITERATION_COUNT ||
+                        iterationCount > MAX_ITERATION_COUNT) {
+                    iterationCount = DEFAULT_ITERATION_COUNT;
+                }
+            } catch (NumberFormatException e) {}
+        }
+        ITERATION_COUNT = iterationCount;
+    }
 
     KeyProtector(char[] password) {
         if (password == null) {
@@ -100,19 +128,24 @@ final class KeyProtector {
         SunJCE.getRandom().nextBytes(salt);
 
         // create PBE parameters from salt and iteration count
-        PBEParameterSpec pbeSpec = new PBEParameterSpec(salt, 20);
+        PBEParameterSpec pbeSpec = new PBEParameterSpec(salt, ITERATION_COUNT);
 
         // create PBE key from password
         PBEKeySpec pbeKeySpec = new PBEKeySpec(this.password);
-        SecretKey sKey = new PBEKey(pbeKeySpec, "PBEWithMD5AndTripleDES");
-        pbeKeySpec.clearPassword();
-
-        // encrypt private key
+        SecretKey sKey = null;
         PBEWithMD5AndTripleDESCipher cipher;
-        cipher = new PBEWithMD5AndTripleDESCipher();
-        cipher.engineInit(Cipher.ENCRYPT_MODE, sKey, pbeSpec, null);
+        try {
+            sKey = new PBEKey(pbeKeySpec, "PBEWithMD5AndTripleDES");
+            // encrypt private key
+            cipher = new PBEWithMD5AndTripleDESCipher();
+            cipher.engineInit(Cipher.ENCRYPT_MODE, sKey, pbeSpec, null);
+        } finally {
+            pbeKeySpec.clearPassword();
+            if (sKey != null) sKey.destroy();
+        }
         byte[] plain = key.getEncoded();
         byte[] encrKey = cipher.engineDoFinal(plain, 0, plain.length);
+        Arrays.fill(plain, (byte)0x00);
 
         // wrap encrypted private key in EncryptedPrivateKeyInfo
         // (as defined in PKCS#8)
@@ -132,8 +165,8 @@ final class KeyProtector {
     Key recover(EncryptedPrivateKeyInfo encrInfo)
         throws UnrecoverableKeyException, NoSuchAlgorithmException
     {
-        byte[] plain;
-
+        byte[] plain = null;
+        SecretKey sKey = null;
         try {
             String encrAlg = encrInfo.getAlgorithm().getOID().toString();
             if (!encrAlg.equals(PBE_WITH_MD5_AND_DES3_CBC_OID)
@@ -155,11 +188,13 @@ final class KeyProtector {
                 pbeParams.init(encodedParams);
                 PBEParameterSpec pbeSpec =
                         pbeParams.getParameterSpec(PBEParameterSpec.class);
+                if (pbeSpec.getIterationCount() > MAX_ITERATION_COUNT) {
+                    throw new IOException("PBE iteration count too large");
+                }
 
                 // create PBE key from password
                 PBEKeySpec pbeKeySpec = new PBEKeySpec(this.password);
-                SecretKey sKey =
-                    new PBEKey(pbeKeySpec, "PBEWithMD5AndTripleDES");
+                sKey = new PBEKey(pbeKeySpec, "PBEWithMD5AndTripleDES");
                 pbeKeySpec.clearPassword();
 
                 // decrypt private key
@@ -176,7 +211,6 @@ final class KeyProtector {
                 (new PrivateKeyInfo(plain).getAlgorithm().getOID()).getName();
             KeyFactory kFac = KeyFactory.getInstance(oidName);
             return kFac.generatePrivate(new PKCS8EncodedKeySpec(plain));
-
         } catch (NoSuchAlgorithmException ex) {
             // Note: this catch needed to be here because of the
             // later catch of GeneralSecurityException
@@ -185,6 +219,15 @@ final class KeyProtector {
             throw new UnrecoverableKeyException(ioe.getMessage());
         } catch (GeneralSecurityException gse) {
             throw new UnrecoverableKeyException(gse.getMessage());
+        } finally {
+            if (plain != null) Arrays.fill(plain, (byte)0x00);
+            if (sKey != null) {
+                try {
+                    sKey.destroy();
+                } catch (DestroyFailedException e) {
+                    //shouldn't happen
+                }
+            }
         }
     }
 
@@ -260,7 +303,7 @@ final class KeyProtector {
         // of <code>protectedKey</code>. If the two digest values are
         // different, throw an exception.
         md.update(passwdBytes);
-        java.util.Arrays.fill(passwdBytes, (byte)0x00);
+        Arrays.fill(passwdBytes, (byte)0x00);
         passwdBytes = null;
         md.update(plainKey);
         digest = md.digest();
@@ -285,34 +328,41 @@ final class KeyProtector {
         SunJCE.getRandom().nextBytes(salt);
 
         // create PBE parameters from salt and iteration count
-        PBEParameterSpec pbeSpec = new PBEParameterSpec(salt, 20);
+        PBEParameterSpec pbeSpec = new PBEParameterSpec(salt, ITERATION_COUNT);
 
         // create PBE key from password
         PBEKeySpec pbeKeySpec = new PBEKeySpec(this.password);
-        SecretKey sKey = new PBEKey(pbeKeySpec, "PBEWithMD5AndTripleDES");
-        pbeKeySpec.clearPassword();
-
-        // seal key
+        SecretKey sKey = null;
         Cipher cipher;
+        try {
+            sKey = new PBEKey(pbeKeySpec, "PBEWithMD5AndTripleDES");
+            pbeKeySpec.clearPassword();
 
-        PBEWithMD5AndTripleDESCipher cipherSpi;
-        cipherSpi = new PBEWithMD5AndTripleDESCipher();
-        cipher = new CipherForKeyProtector(cipherSpi, SunJCE.getInstance(),
+            // seal key
+            PBEWithMD5AndTripleDESCipher cipherSpi;
+            cipherSpi = new PBEWithMD5AndTripleDESCipher();
+            cipher = new CipherForKeyProtector(cipherSpi, SunJCE.getInstance(),
                                            "PBEWithMD5AndTripleDES");
-        cipher.init(Cipher.ENCRYPT_MODE, sKey, pbeSpec);
+            cipher.init(Cipher.ENCRYPT_MODE, sKey, pbeSpec);
+        } finally {
+            if (sKey != null) sKey.destroy();
+        }
         return new SealedObjectForKeyProtector(key, cipher);
     }
 
     /**
      * Unseals the sealed key.
+     *
+     * @param maxLength Maximum possible length of so.
+     *                  If bigger, must be illegal.
      */
-    Key unseal(SealedObject so)
-        throws NoSuchAlgorithmException, UnrecoverableKeyException
-    {
+    Key unseal(SealedObject so, int maxLength)
+        throws NoSuchAlgorithmException, UnrecoverableKeyException {
+        SecretKey sKey = null;
         try {
             // create PBE key from password
             PBEKeySpec pbeKeySpec = new PBEKeySpec(this.password);
-            SecretKey skey = new PBEKey(pbeKeySpec, "PBEWithMD5AndTripleDES");
+            sKey = new PBEKey(pbeKeySpec, "PBEWithMD5AndTripleDES");
             pbeKeySpec.clearPassword();
 
             SealedObjectForKeyProtector soForKeyProtector = null;
@@ -326,13 +376,22 @@ final class KeyProtector {
                 throw new UnrecoverableKeyException("Cannot get " +
                                                     "algorithm parameters");
             }
+            PBEParameterSpec pbeSpec;
+            try {
+                pbeSpec = params.getParameterSpec(PBEParameterSpec.class);
+            } catch (InvalidParameterSpecException ipse) {
+                throw new IOException("Invalid PBE algorithm parameters");
+            }
+            if (pbeSpec.getIterationCount() > MAX_ITERATION_COUNT) {
+                throw new IOException("PBE iteration count too large");
+            }
             PBEWithMD5AndTripleDESCipher cipherSpi;
             cipherSpi = new PBEWithMD5AndTripleDESCipher();
             Cipher cipher = new CipherForKeyProtector(cipherSpi,
                                                       SunJCE.getInstance(),
                                                       "PBEWithMD5AndTripleDES");
-            cipher.init(Cipher.DECRYPT_MODE, skey, params);
-            return (Key)soForKeyProtector.getObject(cipher);
+            cipher.init(Cipher.DECRYPT_MODE, sKey, params);
+            return soForKeyProtector.getKey(cipher, maxLength);
         } catch (NoSuchAlgorithmException ex) {
             // Note: this catch needed to be here because of the
             // later catch of GeneralSecurityException
@@ -343,6 +402,14 @@ final class KeyProtector {
             throw new UnrecoverableKeyException(cnfe.getMessage());
         } catch (GeneralSecurityException gse) {
             throw new UnrecoverableKeyException(gse.getMessage());
+        } finally {
+            if (sKey != null) {
+                try {
+                    sKey.destroy();
+                } catch (DestroyFailedException e) {
+                    //shouldn't happen
+                }
+            }
         }
     }
 }

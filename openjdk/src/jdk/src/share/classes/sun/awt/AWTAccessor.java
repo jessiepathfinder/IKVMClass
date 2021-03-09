@@ -34,8 +34,10 @@ import java.awt.DefaultKeyboardFocusManager;
 import java.awt.event.InputEvent;
 import java.awt.event.InvocationEvent;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseEvent;
 import java.awt.geom.Point2D;
 import java.awt.peer.ComponentPeer;
+import java.awt.peer.MenuComponentPeer;
 
 import java.lang.reflect.InvocationTargetException;
 import java.security.AccessControlContext;
@@ -333,6 +335,12 @@ public final class AWTAccessor {
          * Marks the specified window as an utility window for TrayIcon.
          */
         void setTrayIconWindow(Window w, boolean isTrayIconWindow);
+
+        /**
+         * Return an array containing all the windows this
+         * window currently owns.
+         */
+        Window[] getOwnedWindows(Window w);
     }
 
     /**
@@ -376,6 +384,21 @@ public final class AWTAccessor {
          * Accessor for InputEvent.getButtonDownMasks()
          */
         int[] getButtonDownMasks();
+    }
+
+    /**
+     * An accessor for the MouseEvent class.
+     */
+    public interface MouseEventAccessor {
+        /**
+         * Indicates whether the event is a result of a touch event.
+         */
+        boolean isCausedByTouchEvent(MouseEvent ev);
+
+        /**
+         * Sets whether the event is a result of a touch event.
+         */
+        void setCausedByTouchEvent(MouseEvent ev, boolean causedByTouchEvent);
     }
 
     /*
@@ -463,6 +486,11 @@ public final class AWTAccessor {
          * Gets the font used for this menu component.
          */
         Font getFont_NoClientCode(MenuComponent menuComp);
+
+        /**
+         * Returns the peer of the menu component.
+         */
+        <T extends MenuComponentPeer> T getPeer(MenuComponent menuComp);
     }
 
     /**
@@ -758,6 +786,7 @@ public final class AWTAccessor {
     private static WindowAccessor windowAccessor;
     private static AWTEventAccessor awtEventAccessor;
     private static InputEventAccessor inputEventAccessor;
+    private static MouseEventAccessor mouseEventAccessor;
     private static FrameAccessor frameAccessor;
     private static KeyboardFocusManagerAccessor kfmAccessor;
     private static MenuComponentAccessor menuComponentAccessor;
@@ -866,6 +895,23 @@ public final class AWTAccessor {
             unsafe.ensureClassInitialized(InputEvent.class);
         }
         return inputEventAccessor;
+    }
+
+    /*
+     * Set an accessor object for the java.awt.event.MouseEvent class.
+     */
+    public static void setMouseEventAccessor(MouseEventAccessor mea) {
+        mouseEventAccessor = mea;
+    }
+
+    /*
+     * Retrieve the accessor object for the java.awt.event.MouseEvent class.
+     */
+    public static MouseEventAccessor getMouseEventAccessor() {
+        if (mouseEventAccessor == null) {
+            unsafe.ensureClassInitialized(MouseEvent.class);
+        }
+        return mouseEventAccessor;
     }
 
     /*

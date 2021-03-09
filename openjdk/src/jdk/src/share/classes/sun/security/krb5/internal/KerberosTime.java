@@ -38,6 +38,7 @@ import sun.security.util.DerOutputStream;
 import sun.security.util.DerValue;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.TimeZone;
@@ -45,9 +46,7 @@ import java.util.TimeZone;
 /**
  * Implements the ASN.1 KerberosTime type. This is an immutable class.
  *
- * <xmp>
- * KerberosTime    ::= GeneralizedTime -- with no fractional seconds
- * </xmp>
+ * {@code KerberosTime ::= GeneralizedTime} -- with no fractional seconds
  *
  * The timestamps used in Kerberos are encoded as GeneralizedTimes. A
  * KerberosTime value shall not include any fractional portions of the
@@ -126,6 +125,14 @@ public class KerberosTime {
      */
     public KerberosTime(Date time) {
         this(time.getTime(), 0);
+    }
+
+    /**
+     * Creates a KerberosTime object from an Instant object
+     */
+    public KerberosTime(Instant instant) {
+        this(instant.getEpochSecond()*1000 + instant.getNano()/1000000L,
+                instant.getNano()/1000%1000);
     }
 
     /**

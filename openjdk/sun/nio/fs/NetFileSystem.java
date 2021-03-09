@@ -95,7 +95,7 @@ final class NetFileSystem extends FileSystem
                     sm.checkRead(info.get_Name());
                 }
             }
-            catch (SecurityException _)
+            catch (SecurityException throwaway)
             {
                 continue;
             }
@@ -113,7 +113,7 @@ final class NetFileSystem extends FileSystem
             {
                 sm.checkPermission(new RuntimePermission("getFileStoreAttributes"));
             }
-            catch (SecurityException _)
+            catch (SecurityException throwaway)
             {
                 return Collections.emptyList();
             }
@@ -128,7 +128,7 @@ final class NetFileSystem extends FileSystem
                     sm.checkRead(info.get_Name());
                 }
             }
-            catch (SecurityException _)
+            catch (SecurityException throwaway)
             {
                 continue;
             }
@@ -136,7 +136,7 @@ final class NetFileSystem extends FileSystem
             {
                 list.add(provider.getFileStore(info));
             }
-            catch (IOException _)
+            catch (IOException throwaway)
             {
             }
         }
@@ -283,7 +283,7 @@ final class NetFileSystem extends FileSystem
                     queue.put(key);
                     return;
                 }
-                catch (InterruptedException _)
+                catch (InterruptedException throwaway)
                 {
                 }
             }

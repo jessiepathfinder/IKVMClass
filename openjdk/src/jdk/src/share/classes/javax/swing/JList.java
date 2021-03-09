@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -48,6 +48,8 @@ import java.io.ObjectInputStream;
 import java.io.IOException;
 import java.io.Serializable;
 
+import sun.awt.AWTAccessor;
+import sun.awt.AWTAccessor.MouseEventAccessor;
 import sun.swing.SwingUtilities2;
 import sun.swing.SwingUtilities2.Section;
 import static sun.swing.SwingUtilities2.Section.*;
@@ -1553,6 +1555,10 @@ public class JList<E> extends JComponent implements Scrollable, Accessible
                                               event.getClickCount(),
                                               event.isPopupTrigger(),
                                               MouseEvent.NOBUTTON);
+                    MouseEventAccessor meAccessor =
+                        AWTAccessor.getMouseEventAccessor();
+                    meAccessor.setCausedByTouchEvent(newEvent,
+                        meAccessor.isCausedByTouchEvent(event));
 
                     String tip = ((JComponent)rComponent).getToolTipText(
                                               newEvent);
@@ -3052,7 +3058,7 @@ public class JList<E> extends JComponent implements Scrollable, Accessible
         public Accessible getAccessibleAt(Point p) {
             int i = locationToIndex(p);
             if (i >= 0) {
-                return new AccessibleJListChild(JList.this, i);
+                return new ActionableAccessibleJListChild(JList.this, i);
             } else {
                 return null;
             }
@@ -3079,7 +3085,7 @@ public class JList<E> extends JComponent implements Scrollable, Accessible
             if (i >= getModel().getSize()) {
                 return null;
             } else {
-                return new AccessibleJListChild(JList.this, i);
+                return new ActionableAccessibleJListChild(JList.this, i);
             }
         }
 
@@ -3184,7 +3190,7 @@ public class JList<E> extends JComponent implements Scrollable, Accessible
         protected class AccessibleJListChild extends AccessibleContext
                 implements Accessible, AccessibleComponent {
             private JList<E>     parent = null;
-            private int       indexInParent;
+            int indexInParent;
             private Component component = null;
             private AccessibleContext accessibleContext = null;
             private ListModel<E> listModel;
@@ -3204,7 +3210,7 @@ public class JList<E> extends JComponent implements Scrollable, Accessible
                 return getComponentAtIndex(indexInParent);
             }
 
-            private AccessibleContext getCurrentAccessibleContext() {
+            AccessibleContext getCurrentAccessibleContext() {
                 Component c = getComponentAtIndex(indexInParent);
                 if (c instanceof Accessible) {
                     return c.getAccessibleContext();
@@ -3302,6 +3308,7 @@ public class JList<E> extends JComponent implements Scrollable, Accessible
                 }
 
                 s.add(AccessibleState.SELECTABLE);
+                s.add(AccessibleState.VISIBLE);
                 if (parent.isFocusOwner()
                     && (indexInParent == parent.getLeadSelectionIndex())) {
                     s.add(AccessibleState.ACTIVE);
@@ -3313,11 +3320,6 @@ public class JList<E> extends JComponent implements Scrollable, Accessible
                     s.add(AccessibleState.SHOWING);
                 } else if (s.contains(AccessibleState.SHOWING)) {
                     s.remove(AccessibleState.SHOWING);
-                }
-                if (this.isVisible()) {
-                    s.add(AccessibleState.VISIBLE);
-                } else if (s.contains(AccessibleState.VISIBLE)) {
-                    s.remove(AccessibleState.VISIBLE);
                 }
                 s.add(AccessibleState.TRANSIENT); // cell-rendered
                 return s;
@@ -3370,10 +3372,6 @@ public class JList<E> extends JComponent implements Scrollable, Accessible
                 }
             }
 
-            public AccessibleAction getAccessibleAction() {
-                return getCurrentAccessibleContext().getAccessibleAction();
-            }
-
            /**
             * Get the AccessibleComponent associated with this object.  In the
             * implementation of the Java Accessibility API for this class,
@@ -3387,15 +3385,18 @@ public class JList<E> extends JComponent implements Scrollable, Accessible
             }
 
             public AccessibleSelection getAccessibleSelection() {
-                return getCurrentAccessibleContext().getAccessibleSelection();
+                AccessibleContext ac = getCurrentAccessibleContext();
+                return ac != null ? ac.getAccessibleSelection() : null;
             }
 
             public AccessibleText getAccessibleText() {
-                return getCurrentAccessibleContext().getAccessibleText();
+                AccessibleContext ac = getCurrentAccessibleContext();
+                return ac != null ? ac.getAccessibleText() : null;
             }
 
             public AccessibleValue getAccessibleValue() {
-                return getCurrentAccessibleContext().getAccessibleValue();
+                AccessibleContext ac = getCurrentAccessibleContext();
+                return ac != null ? ac.getAccessibleValue() : null;
             }
 
 
@@ -3588,7 +3589,13 @@ public class JList<E> extends JComponent implements Scrollable, Accessible
 
             public Point getLocationOnScreen() {
                 if (parent != null) {
-                    Point listLocation = parent.getLocationOnScreen();
+                    Point listLocation;
+                    try {
+                        listLocation = parent.getLocationOnScreen();
+                    } catch (IllegalComponentStateException e) {
+                        // This can happen if the component isn't visisble
+                        return null;
+                    }
                     Point componentLocation = parent.indexToLocation(indexInParent);
                     if (componentLocation != null) {
                         componentLocation.translate(listLocation.x, listLocation.y);
@@ -3728,6 +3735,57 @@ public class JList<E> extends JComponent implements Scrollable, Accessible
                     return null;
                 }
             }
+
         } // inner class AccessibleJListChild
+
+        private class ActionableAccessibleJListChild
+            extends AccessibleJListChild
+            implements AccessibleAction {
+
+            ActionableAccessibleJListChild(JList<E> parent, int indexInParent) {
+                super(parent, indexInParent);
+            }
+
+            @Override
+            public AccessibleAction getAccessibleAction() {
+                AccessibleContext ac = getCurrentAccessibleContext();
+                if (ac == null) {
+                    return null;
+                } else {
+                    AccessibleAction aa = ac.getAccessibleAction();
+                    if (aa != null) {
+                        return aa;
+                    } else {
+                        return this;
+                    }
+                }
+            }
+
+            @Override
+            public boolean doAccessibleAction(int i) {
+                if (i == 0) {
+                    JList.this.setSelectedIndex(indexInParent);
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+
+            @Override
+            public String getAccessibleActionDescription(int i) {
+                if (i == 0) {
+                    return UIManager.getString("AbstractButton.clickText");
+                } else {
+                    return null;
+                }
+            }
+
+            @Override
+            public int getAccessibleActionCount() {
+                return 1;
+            }
+
+        } // inner class ActionableAccessibleJListChild
+
     } // inner class AccessibleJList
 }

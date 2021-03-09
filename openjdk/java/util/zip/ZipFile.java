@@ -201,7 +201,7 @@ public class ZipFile implements ZipConstants, Closeable
         ClassStubZipEntry.expandIkvmClasses(this, entries);
         valid = true;
       }
-    catch (EOFException _)
+    catch (EOFException throwaway)
       {
         throw new ZipException("invalid CEN header (bad header size)");
       } 
@@ -213,7 +213,7 @@ public class ZipFile implements ZipConstants, Closeable
               {
                 raf.close();
               }
-            catch (IOException _)
+            catch (IOException throwaway)
               {
               }
           }
@@ -556,7 +556,7 @@ public class ZipFile implements ZipConstants, Closeable
           return null;
         return inp.readString(commentLength, false);
       }
-    catch (IOException _)
+    catch (IOException throwaway)
       {
         return null;
       }

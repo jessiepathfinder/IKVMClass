@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -48,7 +48,9 @@ public class Credentials {
 
     Ticket ticket;
     PrincipalName client;
+    PrincipalName clientAlias;
     PrincipalName server;
+    PrincipalName serverAlias;
     EncryptionKey key;
     TicketFlags flags;
     KerberosTime authTime;
@@ -56,19 +58,31 @@ public class Credentials {
     KerberosTime endTime;
     KerberosTime renewTill;
     HostAddresses cAddr;
-    EncryptionKey serviceKey;
     AuthorizationData authzData;
     private static boolean DEBUG = Krb5.DEBUG;
     private static CredentialsCache cache;
     static boolean alreadyLoaded = false;
     private static boolean alreadyTried = false;
 
+    private Credentials proxy = null;
+
+    public Credentials getProxy() {
+        return proxy;
+    }
+
+    public Credentials setProxy(Credentials proxy) {
+        this.proxy = proxy;
+        return this;
+    }
+
     // Read native ticket with session key type in the given list
     private static native Credentials acquireDefaultNativeCreds(int[] eTypes);
 
     public Credentials(Ticket new_ticket,
                        PrincipalName new_client,
+                       PrincipalName new_client_alias,
                        PrincipalName new_server,
+                       PrincipalName new_server_alias,
                        EncryptionKey new_key,
                        TicketFlags new_flags,
                        KerberosTime authTime,
@@ -77,14 +91,17 @@ public class Credentials {
                        KerberosTime renewTill,
                        HostAddresses cAddr,
                        AuthorizationData authzData) {
-        this(new_ticket, new_client, new_server, new_key, new_flags,
-                authTime, new_startTime, new_endTime, renewTill, cAddr);
+        this(new_ticket, new_client, new_client_alias, new_server,
+                new_server_alias, new_key, new_flags, authTime,
+                new_startTime, new_endTime, renewTill, cAddr);
         this.authzData = authzData;
     }
 
     public Credentials(Ticket new_ticket,
                        PrincipalName new_client,
+                       PrincipalName new_client_alias,
                        PrincipalName new_server,
+                       PrincipalName new_server_alias,
                        EncryptionKey new_key,
                        TicketFlags new_flags,
                        KerberosTime authTime,
@@ -94,7 +111,9 @@ public class Credentials {
                        HostAddresses cAddr) {
         ticket = new_ticket;
         client = new_client;
+        clientAlias = new_client_alias;
         server = new_server;
+        serverAlias = new_server_alias;
         key = new_key;
         flags = new_flags;
         this.authTime = authTime;
@@ -106,7 +125,9 @@ public class Credentials {
 
     public Credentials(byte[] encoding,
                        String client,
+                       String clientAlias,
                        String server,
+                       String serverAlias,
                        byte[] keyBytes,
                        int keyType,
                        boolean[] flags,
@@ -117,7 +138,11 @@ public class Credentials {
                        InetAddress[] cAddrs) throws KrbException, IOException {
         this(new Ticket(encoding),
              new PrincipalName(client, PrincipalName.KRB_NT_PRINCIPAL),
+             (clientAlias == null? null : new PrincipalName(clientAlias,
+                     PrincipalName.KRB_NT_PRINCIPAL)),
              new PrincipalName(server, PrincipalName.KRB_NT_SRV_INST),
+             (serverAlias == null? null : new PrincipalName(serverAlias,
+                     PrincipalName.KRB_NT_SRV_INST)),
              new EncryptionKey(keyType, keyBytes),
              (flags == null? null: new TicketFlags(flags)),
              (authTime == null? null: new KerberosTime(authTime)),
@@ -142,8 +167,16 @@ public class Credentials {
         return client;
     }
 
+    public final PrincipalName getClientAlias() {
+        return clientAlias;
+    }
+
     public final PrincipalName getServer() {
         return server;
+    }
+
+    public final PrincipalName getServerAlias() {
+        return serverAlias;
     }
 
     public final EncryptionKey getSessionKey() {
@@ -261,6 +294,7 @@ public class Credentials {
         return new KrbTgsReq(options,
                              this,
                              server,
+                             serverAlias,
                              null, // from
                              null, // till
                              null, // rtime
@@ -279,7 +313,7 @@ public class Credentials {
      * @param ticketCache the path to the tickets file. A value
      * of null will be accepted to indicate that the default
      * path should be searched
-     * @returns the TGT credentials or null if none were found. If the tgt
+     * @return the TGT credentials or null if none were found. If the tgt
      * expired, it is the responsibility of the caller to determine this.
      */
     public static Credentials acquireTGTFromCache(PrincipalName princ,
@@ -336,20 +370,19 @@ public class Credentials {
             return null;
         }
 
-        sun.security.krb5.internal.ccache.Credentials tgtCred  =
-            ccache.getDefaultCreds();
+        Credentials tgtCred = ccache.getInitialCreds();
 
         if (tgtCred == null) {
             return null;
         }
 
-        if (EType.isSupported(tgtCred.getEType())) {
-            return tgtCred.setKrbCreds();
+        if (EType.isSupported(tgtCred.key.getEType())) {
+            return tgtCred;
         } else {
             if (DEBUG) {
                 System.out.println(
                     ">>> unsupported key type found the default TGT: " +
-                    tgtCred.getEType());
+                    tgtCred.key.getEType());
             }
             return null;
         }
@@ -384,20 +417,19 @@ public class Credentials {
             cache = CredentialsCache.getInstance();
         }
         if (cache != null) {
-            sun.security.krb5.internal.ccache.Credentials temp =
-                cache.getDefaultCreds();
+            Credentials temp = cache.getInitialCreds();
             if (temp != null) {
                 if (DEBUG) {
                     System.out.println(">>> KrbCreds found the default ticket"
                             + " granting ticket in credential cache.");
                 }
-                if (EType.isSupported(temp.getEType())) {
-                    result = temp.setKrbCreds();
+                if (EType.isSupported(temp.key.getEType())) {
+                    result = temp;
                 } else {
                     if (DEBUG) {
                         System.out.println(
                             ">>> unsupported key type found the default TGT: " +
-                            temp.getEType());
+                            temp.key.getEType());
                     }
                 }
             }
@@ -474,17 +506,17 @@ public class Credentials {
         return cache;
     }
 
-    public EncryptionKey getServiceKey() {
-        return serviceKey;
-    }
-
     /*
      * Prints out debug info.
      */
     public static void printDebug(Credentials c) {
         System.out.println(">>> DEBUG: ----Credentials----");
         System.out.println("\tclient: " + c.client.toString());
+        if (c.clientAlias != null)
+            System.out.println("\tclient alias: " + c.clientAlias.toString());
         System.out.println("\tserver: " + c.server.toString());
+        if (c.serverAlias != null)
+            System.out.println("\tserver alias: " + c.serverAlias.toString());
         System.out.println("\tticket: sname: " + c.ticket.sname.toString());
         if (c.startTime != null) {
             System.out.println("\tstartTime: " + c.startTime.getTime());
@@ -512,7 +544,11 @@ public class Credentials {
     public String toString() {
         StringBuffer buffer = new StringBuffer("Credentials:");
         buffer.append(    "\n      client=").append(client);
+        if (clientAlias != null)
+            buffer.append(    "\n      clientAlias=").append(clientAlias);
         buffer.append(    "\n      server=").append(server);
+        if (serverAlias != null)
+            buffer.append(    "\n      serverAlias=").append(serverAlias);
         if (authTime != null) {
             buffer.append("\n    authTime=").append(authTime);
         }
@@ -527,4 +563,23 @@ public class Credentials {
         return buffer.toString();
     }
 
+    public sun.security.krb5.internal.ccache.Credentials toCCacheCreds() {
+        return new sun.security.krb5.internal.ccache.Credentials(
+                getClient(), getServer(),
+                getSessionKey(),
+                date2kt(getAuthTime()),
+                date2kt(getStartTime()),
+                date2kt(getEndTime()),
+                date2kt(getRenewTill()),
+                false,
+                flags,
+                new HostAddresses(getClientAddresses()),
+                getAuthzData(),
+                getTicket(),
+                null);
+    }
+
+    private static KerberosTime date2kt(Date d) {
+        return d == null ? null : new KerberosTime(d);
+    }
 }

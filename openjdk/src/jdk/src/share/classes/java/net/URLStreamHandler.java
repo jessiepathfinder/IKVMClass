@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1995, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1995, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -161,9 +161,9 @@ public abstract class URLStreamHandler {
             (spec.charAt(start + 1) == '/')) {
             start += 2;
             i = spec.indexOf('/', start);
-            if (i < 0) {
+            if (i < 0 || i > limit) {
                 i = spec.indexOf('?', start);
-                if (i < 0)
+                if (i < 0 || i > limit)
                     i = limit;
             }
 
@@ -171,8 +171,14 @@ public abstract class URLStreamHandler {
 
             int ind = authority.indexOf('@');
             if (ind != -1) {
-                userInfo = authority.substring(0, ind);
-                host = authority.substring(ind+1);
+                if (ind != authority.lastIndexOf('@')) {
+                    // more than one '@' in authority. This is not server based
+                    userInfo = null;
+                    host = null;
+                } else {
+                    userInfo = authority.substring(0, ind);
+                    host = authority.substring(ind+1);
+                }
             } else {
                 userInfo = null;
             }
@@ -526,12 +532,15 @@ public abstract class URLStreamHandler {
      * @see     java.net.URL#set(java.lang.String, java.lang.String, int, java.lang.String, java.lang.String)
      * @since 1.3
      */
-       protected void setURL(URL u, String protocol, String host, int port,
+    protected void setURL(URL u, String protocol, String host, int port,
                              String authority, String userInfo, String path,
                              String query, String ref) {
         if (this != u.handler) {
             throw new SecurityException("handler for url different from " +
                                         "this handler");
+        } else if (host != null && u.isBuiltinStreamHandler(this)) {
+            String s = IPAddressUtil.checkHostString(host);
+            if (s != null) throw new IllegalArgumentException(s);
         }
         // ensure that no one can reset the protocol on a given URL.
         u.set(u.getProtocol(), host, port, authority, userInfo, path, query, ref);

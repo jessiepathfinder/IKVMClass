@@ -144,7 +144,7 @@ final class DotNetSelectorImpl extends SelectorImpl
                 // FXBUG docs say that -1 is infinite timeout, but that doesn't appear to work
                 Socket.Select(read, write, error, timeout < 0 ? Integer.MAX_VALUE : microSeconds);
             }
-            catch (SocketException _)
+            catch (SocketException throwaway)
             {
                 read.Clear();
                 write.Clear();

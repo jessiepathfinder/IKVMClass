@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2002, 2018, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -143,6 +143,7 @@ public abstract class Validator {
      */
     public final static String VAR_PLUGIN_CODE_SIGNING = "plugin code signing";
 
+    private final String type;
     final EndEntityChecker endEntityChecker;
     final String variant;
 
@@ -154,6 +155,7 @@ public abstract class Validator {
     volatile Date validationDate;
 
     Validator(String type, String variant) {
+        this.type = type;
         this.variant = variant;
         endEntityChecker = EndEntityChecker.getInstance(type, variant);
     }
@@ -164,7 +166,7 @@ public abstract class Validator {
      */
     public static Validator getInstance(String type, String variant,
             KeyStore ks) {
-        return getInstance(type, variant, KeyStores.getTrustedCerts(ks));
+        return getInstance(type, variant, TrustStoreUtil.getTrustedCerts(ks));
     }
 
     /**
@@ -233,7 +235,8 @@ public abstract class Validator {
     public final X509Certificate[] validate(X509Certificate[] chain,
             Collection<X509Certificate> otherCerts, Object parameter)
             throws CertificateException {
-        return validate(chain, otherCerts, null, parameter);
+        return validate(chain, otherCerts, Collections.emptyList(), null,
+                parameter);
     }
 
     /**
@@ -242,6 +245,13 @@ public abstract class Validator {
      * @param chain the target certificate chain
      * @param otherCerts a Collection of additional X509Certificates that
      *        could be helpful for path building (or null)
+     * @param responseList a List of zero or more byte arrays, each
+     *        one being a DER-encoded OCSP response (per RFC 6960).  Entries
+     *        in the List must match the order of the certificates in the
+     *        chain parameter.  It is possible that fewer responses may be
+     *        in the list than are elements in {@code chain} and a missing
+     *        response for a matching element in {@code chain} can be
+     *        represented with a zero-length byte array.
      * @param constraints algorithm constraints for certification path
      *        processing
      * @param parameter an additional parameter with variant specific meaning.
@@ -255,13 +265,24 @@ public abstract class Validator {
      */
     public final X509Certificate[] validate(X509Certificate[] chain,
                 Collection<X509Certificate> otherCerts,
+                List<byte[]> responseList,
                 AlgorithmConstraints constraints,
                 Object parameter) throws CertificateException {
-        chain = engineValidate(chain, otherCerts, constraints, parameter);
+        chain = engineValidate(chain, otherCerts, responseList, constraints,
+                parameter);
 
         // omit EE extension check if EE cert is also trust anchor
         if (chain.length > 1) {
-            endEntityChecker.check(chain[0], parameter);
+            // EndEntityChecker does not need to check unresolved critical
+            // extensions when validating with a TYPE_PKIX Validator.
+            // A TYPE_PKIX Validator will already have run checks on all
+            // certs' extensions, including checks by any PKIXCertPathCheckers
+            // included in the PKIXParameters, so the extra checks would be
+            // redundant.
+            boolean checkUnresolvedCritExts =
+                    (type == TYPE_PKIX) ? false : true;
+            endEntityChecker.check(chain, parameter,
+                                   checkUnresolvedCritExts);
         }
 
         return chain;
@@ -269,6 +290,7 @@ public abstract class Validator {
 
     abstract X509Certificate[] engineValidate(X509Certificate[] chain,
                 Collection<X509Certificate> otherCerts,
+                List<byte[]> responseList,
                 AlgorithmConstraints constraints,
                 Object parameter) throws CertificateException;
 

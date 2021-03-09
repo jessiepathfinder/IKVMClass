@@ -377,11 +377,11 @@ final class NetFileSystemProvider extends AbstractFileSystemProvider
         {
             throw new FileSystemException(path, null, x.getMessage());
         }
-        catch (cli.System.IO.FileNotFoundException _)
+        catch (cli.System.IO.FileNotFoundException throwaway)
         {
             throw new NoSuchFileException(path);
         }
-        catch (cli.System.IO.DirectoryNotFoundException _)
+        catch (cli.System.IO.DirectoryNotFoundException throwaway)
         {
             throw new NoSuchFileException(path);
         }
@@ -397,11 +397,11 @@ final class NetFileSystemProvider extends AbstractFileSystemProvider
             }
             throw new FileSystemException(path, null, x.getMessage());
         }
-        catch (cli.System.Security.SecurityException _)
+        catch (cli.System.Security.SecurityException throwaway)
         {
             throw new AccessDeniedException(path);
         }
-        catch (cli.System.UnauthorizedAccessException _)
+        catch (cli.System.UnauthorizedAccessException throwaway)
         {
             throw new AccessDeniedException(path);
         }
@@ -575,7 +575,7 @@ final class NetFileSystemProvider extends AbstractFileSystemProvider
                     if (false) throw new cli.System.IO.IOException();
                     Directory.Delete(ntarget.path);
                 }
-                catch (cli.System.IO.IOException _)
+                catch (cli.System.IO.IOException throwaway)
                 {
                     // HACK we assume that the IOException is caused by the directory not being empty
                     throw new DirectoryNotEmptyException(ntarget.path);
@@ -719,7 +719,7 @@ final class NetFileSystemProvider extends AbstractFileSystemProvider
                     if (false) throw new cli.System.IO.IOException();
                     Directory.Delete(ntarget.path);
                 }
-                catch (cli.System.IO.IOException _)
+                catch (cli.System.IO.IOException throwaway)
                 {
                     // HACK we assume that the IOException is caused by the directory not being empty
                     throw new DirectoryNotEmptyException(ntarget.path);
@@ -980,7 +980,7 @@ final class NetFileSystemProvider extends AbstractFileSystemProvider
                 }
             }
         }
-        catch (cli.System.IO.FileNotFoundException | cli.System.IO.DirectoryNotFoundException _)
+        catch (cli.System.IO.FileNotFoundException | cli.System.IO.DirectoryNotFoundException throwaway)
         {
             throw new NoSuchFileException(npath);
         }
@@ -1194,7 +1194,7 @@ final class NetFileSystemProvider extends AbstractFileSystemProvider
                 }
                 return new DosFileAttributesImpl(info);
             }
-            catch (cli.System.IO.FileNotFoundException _)
+            catch (cli.System.IO.FileNotFoundException throwaway)
             {
                 throw new NoSuchFileException(path);
             }
@@ -1245,7 +1245,7 @@ final class NetFileSystemProvider extends AbstractFileSystemProvider
                     info.set_Attributes(cli.System.IO.FileAttributes.wrap(info.get_Attributes().Value & ~attr));
                 }
             }
-            catch (cli.System.IO.FileNotFoundException _)
+            catch (cli.System.IO.FileNotFoundException throwaway)
             {
                 throw new NoSuchFileException(path);
             }
@@ -1403,7 +1403,7 @@ final class NetFileSystemProvider extends AbstractFileSystemProvider
                     if (false) throw new cli.System.IO.IOException();
                     cli.System.IO.Directory.Delete(path);
                 }
-                catch (cli.System.IO.IOException _)
+                catch (cli.System.IO.IOException throwaway)
                 {
                     // HACK we assume that the IOException is caused by the directory not being empty
                     throw new DirectoryNotEmptyException(path);
@@ -1420,7 +1420,7 @@ final class NetFileSystemProvider extends AbstractFileSystemProvider
         {
             throw new FileSystemException(path, null, x.getMessage());
         }
-        catch (cli.System.IO.FileNotFoundException _)
+        catch (cli.System.IO.FileNotFoundException throwaway)
         {
             if (failIfNotExists)
             {
@@ -1431,7 +1431,7 @@ final class NetFileSystemProvider extends AbstractFileSystemProvider
                 return false;
             }
         }
-        catch (cli.System.IO.DirectoryNotFoundException _)
+        catch (cli.System.IO.DirectoryNotFoundException throwaway)
         {
             if (failIfNotExists)
             {
@@ -1446,11 +1446,11 @@ final class NetFileSystemProvider extends AbstractFileSystemProvider
         {
             throw new FileSystemException(path, null, x.getMessage());
         }
-        catch (cli.System.Security.SecurityException _)
+        catch (cli.System.Security.SecurityException throwaway)
         {
             throw new AccessDeniedException(path);
         }
-        catch (cli.System.UnauthorizedAccessException _)
+        catch (cli.System.UnauthorizedAccessException throwaway)
         {
             throw new AccessDeniedException(path);
         }

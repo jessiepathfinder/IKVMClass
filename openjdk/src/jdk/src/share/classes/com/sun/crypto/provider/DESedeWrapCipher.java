@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2004, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -32,7 +32,7 @@ import javax.crypto.spec.*;
 
 /**
  * This class implements the CMS DESede KeyWrap algorithm as defined
- * in <a href=http://www.w3.org/TR/xmlenc-core/#sec-Alg-SymmetricKeyWrap>
+ * in <a href=http://www.w3.org/TR/xmlenc-core/#sec-Alg-SymmetricKeyWrap></a>
  * "XML Encryption Syntax and Processing" section 5.6.2
  * "CMS Triple DES Key Wrap".
  * Note: only <code>CBC</code> mode and <code>NoPadding</code> padding
@@ -140,7 +140,7 @@ public final class DESedeWrapCipher extends CipherSpi {
         if (decrypting) {
             result = inputLen - 16; // CHECKSUM_LEN + IV_LEN;
         } else {
-            result = inputLen + 16;
+            result = Math.addExact(inputLen, 16);
         }
         return (result < 0? 0:result);
     }
@@ -159,9 +159,8 @@ public final class DESedeWrapCipher extends CipherSpi {
     /**
      * Initializes this cipher with a key and a source of randomness.
      *
-     * <p>The cipher only supports the following two operation modes:<b>
-     * Cipher.WRAP_MODE, and <b>
-     * Cipher.UNWRAP_MODE.
+     * <p>The cipher only supports the following two operation modes:
+     * {@code Cipher.WRAP_MODE}, and {@code Cipher.UNWRAP_MODE}.
      * <p>For modes other than the above two, UnsupportedOperationException
      * will be thrown.
      * <p>If this cipher requires an initialization vector (IV), it will get
@@ -192,9 +191,8 @@ public final class DESedeWrapCipher extends CipherSpi {
      * Initializes this cipher with a key, a set of algorithm parameters,
      * and a source of randomness.
      *
-     * <p>The cipher only supports the following two operation modes:<b>
-     * Cipher.WRAP_MODE, and <b>
-     * Cipher.UNWRAP_MODE.
+     * <p>The cipher only supports the following two operation modes:
+     * {@code Cipher.WRAP_MODE}, and {@code Cipher.UNWRAP_MODE}.
      * <p>For modes other than the above two, UnsupportedOperationException
      * will be thrown.
      * <p>If this cipher requires an initialization vector (IV), it will get
@@ -252,9 +250,8 @@ public final class DESedeWrapCipher extends CipherSpi {
      * Initializes this cipher with a key, a set of algorithm parameters,
      * and a source of randomness.
      *
-     * <p>The cipher only supports the following two operation modes:<b>
-     * Cipher.WRAP_MODE, and <b>
-     * Cipher.UNWRAP_MODE.
+     * <p>The cipher only supports the following two operation modes:
+     * {@code Cipher.WRAP_MODE}, and {@code Cipher.UNWRAP_MODE}.
      * <p>For modes other than the above two, UnsupportedOperationException
      * will be thrown.
      * <p>If this cipher requires an initialization vector (IV), it will get
@@ -360,15 +357,15 @@ public final class DESedeWrapCipher extends CipherSpi {
      * current Cipher.engineInit(...) implementation,
      * IllegalStateException will always be thrown upon invocation.
      *
-     * @param in the input buffer.
-     * @param inOffset the offset in <code>in</code> where the input
+     * @param input the input buffer.
+     * @param inputOffset the offset in {@code input} where the input
      * starts.
-     * @param inLen the input length.
-     * @param out the buffer for the result.
-     * @param outOffset the ofset in <code>out</code> where the result
+     * @param inputLen the input length.
+     * @param output the buffer for the result.
+     * @param outputOffset the ofset in {@code output} where the result
      * is stored.
      *
-     * @return the number of bytes stored in <code>out</code>.
+     * @return the number of bytes stored in {@code out}.
      *
      * @exception IllegalStateException upon invocation of this method.
      */
@@ -452,11 +449,11 @@ public final class DESedeWrapCipher extends CipherSpi {
         }
 
         byte[] cks = getChecksum(keyVal);
-        byte[] in = new byte[keyVal.length + CHECKSUM_LEN];
+        byte[] in = new byte[Math.addExact(keyVal.length, CHECKSUM_LEN)];
         System.arraycopy(keyVal, 0, in, 0, keyVal.length);
         System.arraycopy(cks, 0, in, keyVal.length, CHECKSUM_LEN);
 
-        byte[] out = new byte[iv.length + in.length];
+        byte[] out = new byte[Math.addExact(iv.length, in.length)];
         System.arraycopy(iv, 0, out, 0, iv.length);
 
         cipher.encrypt(in, 0, in.length, out, iv.length);
@@ -473,6 +470,9 @@ public final class DESedeWrapCipher extends CipherSpi {
         } catch (InvalidKeyException ike) {
             // should never happen
             throw new RuntimeException("Internal cipher key is corrupted");
+        } catch (InvalidAlgorithmParameterException iape) {
+            // should never happen
+            throw new RuntimeException("Internal cipher IV is invalid");
         }
         byte[] out2 = new byte[out.length];
         cipher.encrypt(out, 0, out.length, out2, 0);
@@ -484,6 +484,9 @@ public final class DESedeWrapCipher extends CipherSpi {
         } catch (InvalidKeyException ike) {
             // should never happen
             throw new RuntimeException("Internal cipher key is corrupted");
+        } catch (InvalidAlgorithmParameterException iape) {
+            // should never happen
+            throw new RuntimeException("Internal cipher IV is invalid");
         }
         return out2;
     }
@@ -527,8 +530,12 @@ public final class DESedeWrapCipher extends CipherSpi {
         }
         iv = new byte[IV_LEN];
         System.arraycopy(buffer, 0, iv, 0, iv.length);
-        cipher.init(true, cipherKey.getAlgorithm(), cipherKey.getEncoded(),
+        try {
+            cipher.init(true, cipherKey.getAlgorithm(), cipherKey.getEncoded(),
                     iv);
+        } catch (InvalidAlgorithmParameterException iape) {
+            throw new InvalidKeyException("IV in wrapped key is invalid");
+        }
         byte[] buffer2 = new byte[buffer.length - iv.length];
         cipher.decrypt(buffer, iv.length, buffer2.length,
                        buffer2, 0);
@@ -541,8 +548,12 @@ public final class DESedeWrapCipher extends CipherSpi {
             }
         }
         // restore cipher state to prior to this call
-        cipher.init(decrypting, cipherKey.getAlgorithm(),
+        try {
+          cipher.init(decrypting, cipherKey.getAlgorithm(),
                     cipherKey.getEncoded(), IV2);
+        } catch (InvalidAlgorithmParameterException iape) {
+            throw new InvalidKeyException("IV in wrapped key is invalid");
+        }
         byte[] out = new byte[keyValLen];
         System.arraycopy(buffer2, 0, out, 0, keyValLen);
         return ConstructKeys.constructKey(out, wrappedKeyAlgorithm,

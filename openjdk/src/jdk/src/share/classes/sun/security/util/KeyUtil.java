@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,6 +25,7 @@
 
 package sun.security.util;
 
+import java.security.AlgorithmParameters;
 import java.security.Key;
 import java.security.PrivilegedAction;
 import java.security.AccessController;
@@ -32,14 +33,19 @@ import java.security.InvalidKeyException;
 import java.security.interfaces.ECKey;
 import java.security.interfaces.RSAKey;
 import java.security.interfaces.DSAKey;
+import java.security.interfaces.DSAParams;
 import java.security.SecureRandom;
 import java.security.spec.KeySpec;
+import java.security.spec.ECParameterSpec;
+import java.security.spec.InvalidParameterSpecException;
 import javax.crypto.SecretKey;
 import javax.crypto.interfaces.DHKey;
 import javax.crypto.interfaces.DHPublicKey;
 import javax.crypto.spec.DHParameterSpec;
 import javax.crypto.spec.DHPublicKeySpec;
 import java.math.BigInteger;
+
+import sun.security.jca.JCAUtil;
 
 /**
  * A utility class to get key length, valiate keys, etc.
@@ -85,7 +91,8 @@ public final class KeyUtil {
             size = pubk.getParams().getOrder().bitLength();
         } else if (key instanceof DSAKey) {
             DSAKey pubk = (DSAKey)key;
-            size = pubk.getParams().getP().bitLength();
+            DSAParams params = pubk.getParams();    // params can be null
+            size = (params != null) ? params.getP().bitLength() : -1;
         } else if (key instanceof DHKey) {
             DHKey pubk = (DHKey)key;
             size = pubk.getParams().getP().bitLength();
@@ -93,6 +100,61 @@ public final class KeyUtil {
             // a key we are not able to handle.
 
         return size;
+    }
+
+    /**
+     * Returns the key size of the given cryptographic parameters in bits.
+     *
+     * @param parameters the cryptographic parameters, cannot be null
+     * @return the key size of the given cryptographic parameters in bits,
+     *       or -1 if the key size is not accessible
+     */
+    public static final int getKeySize(AlgorithmParameters parameters) {
+
+        String algorithm = parameters.getAlgorithm();
+        switch (algorithm) {
+            case "EC":
+                try {
+                    ECKeySizeParameterSpec ps = parameters.getParameterSpec(
+                            ECKeySizeParameterSpec.class);
+                    if (ps != null) {
+                        return ps.getKeySize();
+                    }
+                } catch (InvalidParameterSpecException ipse) {
+                    // ignore
+                }
+
+                try {
+                    ECParameterSpec ps = parameters.getParameterSpec(
+                            ECParameterSpec.class);
+                    if (ps != null) {
+                        return ps.getOrder().bitLength();
+                    }
+                } catch (InvalidParameterSpecException ipse) {
+                    // ignore
+                }
+
+                // Note: the ECGenParameterSpec case should be covered by the
+                // ECParameterSpec case above.
+                // See ECUtil.getECParameterSpec(Provider, String).
+
+                break;
+            case "DiffieHellman":
+                try {
+                    DHParameterSpec ps = parameters.getParameterSpec(
+                            DHParameterSpec.class);
+                    if (ps != null) {
+                        return ps.getP().bitLength();
+                    }
+                } catch (InvalidParameterSpecException ipse) {
+                    // ignore
+                }
+                break;
+
+            // May support more AlgorithmParameters algorithms in the future.
+        }
+
+        return -1;
     }
 
     /**
@@ -144,8 +206,6 @@ public final class KeyUtil {
 
     /**
      * Returns whether the specified provider is Oracle provider or not.
-     * <P>
-     * Note that this method is only apply to SunJCE and SunPKCS11 at present.
      *
      * @param  providerName
      *         the provider name
@@ -153,8 +213,11 @@ public final class KeyUtil {
      *         {@code providerName} is Oracle provider
      */
     public static final boolean isOracleJCEProvider(String providerName) {
-        return providerName != null && (providerName.equals("SunJCE") ||
-                                        providerName.startsWith("SunPKCS11"));
+        return providerName != null &&
+                (providerName.equals("SunJCE") ||
+                    providerName.equals("SunMSCAPI") ||
+                    providerName.equals("OracleUcrypto") ||
+                    providerName.startsWith("SunPKCS11"));
     }
 
     /**
@@ -199,7 +262,7 @@ public final class KeyUtil {
             byte[] encoded, boolean isFailOver) {
 
         if (random == null) {
-            random = new SecureRandom();
+            random = JCAUtil.getSecureRandom();
         }
         byte[] replacer = new byte[48];
         random.nextBytes(replacer);

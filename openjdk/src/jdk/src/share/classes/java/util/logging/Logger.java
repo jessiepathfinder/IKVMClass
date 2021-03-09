@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -800,6 +800,7 @@ public class Logger {
      * @param   level   One of the message level identifiers, e.g., SEVERE
      * @param   msgSupplier   A function, which when called, produces the
      *                        desired log message
+     * @since 1.8
      */
     public void log(Level level, Supplier<String> msgSupplier) {
         if (!isLoggable(level)) {
@@ -1816,8 +1817,7 @@ public class Logger {
             public ResourceBundle run() {
                 try {
                     return ResourceBundle.getBundle(SYSTEM_LOGGER_RB_NAME,
-                                                    locale,
-                                                    ClassLoader.getSystemClassLoader());
+                                                    locale);
                 } catch (MissingResourceException e) {
                     throw new InternalError(e.toString());
                 }

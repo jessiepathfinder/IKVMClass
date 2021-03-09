@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2015, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -42,8 +42,6 @@ import java.text.spi.NumberFormatProvider;
 import javax.accessibility.*;
 import sun.util.locale.provider.LocaleProviderAdapter;
 import sun.util.locale.provider.LocaleResources;
-import sun.util.locale.provider.LocaleServiceProviderPool;
-
 
 /**
  * A single line input field that lets the user select a
@@ -77,12 +75,12 @@ import sun.util.locale.provider.LocaleServiceProviderPool;
  *   try {
  *       spinner.commitEdit();
  *   }
- *   catch (ParseException pe) {{
+ *   catch (ParseException pe) {
  *       // Edited value is invalid, spinner.getValue() will return
  *       // the last valid value, you could revert the spinner to show that:
- *       JComponent editor = spinner.getEditor()
+ *       JComponent editor = spinner.getEditor();
  *       if (editor instanceof DefaultEditor) {
- *           ((DefaultEditor)editor).getTextField().setValue(spinner.getValue();
+ *           ((DefaultEditor)editor).getTextField().setValue(spinner.getValue());
  *       }
  *       // reset the value to some known value:
  *       spinner.setValue(fallbackValue);
@@ -1220,6 +1218,7 @@ public class JSpinner extends JComponent implements Accessible
             JFormattedTextField ftf = getTextField();
             ftf.setEditable(true);
             ftf.setFormatterFactory(factory);
+            // Change the text orientation for the NumberEditor
             ftf.setHorizontalAlignment(JTextField.RIGHT);
 
             /* TBD - initializing the column width of the text field
@@ -1262,6 +1261,16 @@ public class JSpinner extends JComponent implements Accessible
          */
         public SpinnerNumberModel getModel() {
             return (SpinnerNumberModel)(getSpinner().getModel());
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public void setComponentOrientation(ComponentOrientation o) {
+            super.setComponentOrientation(o);
+            getTextField().setHorizontalAlignment(
+                    o.isLeftToRight() ? JTextField.RIGHT : JTextField.LEFT);
         }
     }
 

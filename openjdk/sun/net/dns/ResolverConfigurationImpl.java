@@ -177,7 +177,7 @@ public class ResolverConfigurationImpl
 	        if (false) throw new cli.System.PlatformNotSupportedException();
 		searchlist = strAppend(searchlist, props.get_DnsSuffix());
 	    }
-	    catch (cli.System.PlatformNotSupportedException _) {
+	    catch (cli.System.PlatformNotSupportedException throwaway) {
 	    }
 	}
 	os_searchlist = searchlist;

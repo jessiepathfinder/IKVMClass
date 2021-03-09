@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2015, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -52,7 +52,7 @@ import sun.security.x509.X500Name;
  * {@link CertStore#getCRLs CertStore.getCRLs} or some similar
  * method.
  * <p>
- * Please refer to <a href="http://www.ietf.org/rfc/rfc3280.txt">RFC 3280:
+ * Please refer to <a href="http://tools.ietf.org/html/rfc5280">RFC 5280:
  * Internet X.509 Public Key Infrastructure Certificate and CRL Profile</a>
  * for definitions of the X.509 CRL fields and extensions mentioned below.
  * <p>
@@ -679,10 +679,14 @@ public class X509CRLSelector implements CRLSelector {
                 nowPlusSkew = new Date(dateAndTime.getTime() + skew);
                 nowMinusSkew = new Date(dateAndTime.getTime() - skew);
             }
+
+            // Check that the test date is within the validity interval:
+            //   [ thisUpdate - MAX_CLOCK_SKEW,
+            //     nextUpdate + MAX_CLOCK_SKEW ]
             if (nowMinusSkew.after(nextUpdate)
                 || nowPlusSkew.before(crlThisUpdate)) {
                 if (debug != null) {
-                    debug.println("X509CRLSelector.match: update out of range");
+                    debug.println("X509CRLSelector.match: update out-of-range");
                 }
                 return false;
             }

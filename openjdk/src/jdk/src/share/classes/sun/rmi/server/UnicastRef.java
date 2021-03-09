@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1996, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,18 +27,20 @@ package sun.rmi.server;
 
 import java.io.IOException;
 import java.io.ObjectInput;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
 import java.lang.reflect.Method;
 import java.rmi.MarshalException;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
-import java.rmi.ServerException;
 import java.rmi.UnmarshalException;
 import java.rmi.server.Operation;
 import java.rmi.server.RemoteCall;
 import java.rmi.server.RemoteObject;
 import java.rmi.server.RemoteRef;
 import java.security.AccessController;
+
+import sun.misc.SharedSecrets;
 import sun.rmi.runtime.Log;
 import sun.rmi.transport.Connection;
 import sun.rmi.transport.LiveRef;
@@ -187,14 +189,11 @@ public class UnicastRef implements RemoteRef {
 
                 return returnValue;
 
-            } catch (IOException e) {
+            } catch (IOException | ClassNotFoundException e) {
+                // disable saving any refs in the inputStream for GC
+                ((StreamRemoteCall)call).discardPendingRefs();
                 clientRefLog.log(Log.BRIEF,
-                                 "IOException unmarshalling return: ", e);
-                throw new UnmarshalException("error unmarshalling return", e);
-            } catch (ClassNotFoundException e) {
-                clientRefLog.log(Log.BRIEF,
-                    "ClassNotFoundException unmarshalling return: ", e);
-
+                                 e.getClass().getName() + " unmarshalling return: ", e);
                 throw new UnmarshalException("error unmarshalling return", e);
             } finally {
                 try {
@@ -322,6 +321,8 @@ public class UnicastRef implements RemoteRef {
             } else {
                 throw new Error("Unrecognized primitive type: " + type);
             }
+        } else if (type == String.class && in instanceof ObjectInputStream) {
+            return SharedSecrets.getJavaObjectInputStreamReadString().readString((ObjectInputStream)in);
         } else {
             return in.readObject();
         }

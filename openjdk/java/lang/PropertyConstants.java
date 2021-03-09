@@ -27,7 +27,7 @@ interface PropertyConstants
 {
     String awt_toolkit = "ikvm.awt.NetToolkit, IKVM.AWT.WinForms";
     String java_awt_graphicsenv = "ikvm.awt.NetGraphicsEnvironment, IKVM.AWT.WinForms";
-    String java_vm_version = "8.6.6.0";
-    String java_runtime_version = "8.6.6.0";
-    String openjdk_version = "jdk8u41-ri";
+    String java_vm_version = "8.6.7.0";
+    String java_runtime_version = "8.6.7.0";
+    String openjdk_version = "jdk8u282-ikvm";
 }

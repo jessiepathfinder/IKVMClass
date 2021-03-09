@@ -179,7 +179,7 @@ public final class Winsock
             lastError = x.get_ErrorCode();
             return SOCKET_ERROR;
         }
-        catch (cli.System.ObjectDisposedException _)
+        catch (cli.System.ObjectDisposedException throwaway)
         {
             lastError = WSAENOTSOCK;
             return SOCKET_ERROR;
@@ -230,12 +230,12 @@ public final class Winsock
             lastError = x.get_ErrorCode();
             return SOCKET_ERROR;
         }
-        catch (cli.System.ObjectDisposedException _)
+        catch (cli.System.ObjectDisposedException throwaway)
         {
             lastError = WSAENOTSOCK;
             return SOCKET_ERROR;
         }
-        catch (cli.System.InvalidOperationException _)
+        catch (cli.System.InvalidOperationException throwaway)
         {
             lastError = WSAEINVAL;
             return SOCKET_ERROR;
@@ -270,7 +270,7 @@ public final class Winsock
             lastError = x.get_ErrorCode();
             return INVALID_SOCKET;
         }
-        catch (cli.System.ObjectDisposedException _)
+        catch (cli.System.ObjectDisposedException throwaway)
         {
             lastError = WSAENOTSOCK;
             return INVALID_SOCKET;
@@ -391,7 +391,7 @@ public final class Winsock
             lastError = x.get_ErrorCode();
             return SOCKET_ERROR;
         }
-        catch (cli.System.ObjectDisposedException _)
+        catch (cli.System.ObjectDisposedException throwaway)
         {
             lastError = WSAENOTSOCK;
             return SOCKET_ERROR;
@@ -442,7 +442,7 @@ public final class Winsock
             lastError = x.get_ErrorCode();
             return SOCKET_ERROR;
         }
-        catch (cli.System.ObjectDisposedException _)
+        catch (cli.System.ObjectDisposedException throwaway)
         {
             lastError = WSAENOTSOCK;
             return SOCKET_ERROR;
@@ -493,7 +493,7 @@ public final class Winsock
             lastError = x.get_ErrorCode();
             return SOCKET_ERROR;
         }
-        catch (cli.System.ObjectDisposedException _)
+        catch (cli.System.ObjectDisposedException throwaway)
         {
             lastError = WSAENOTSOCK;
             return SOCKET_ERROR;
@@ -519,7 +519,7 @@ public final class Winsock
             lastError = x.get_ErrorCode();
             return SOCKET_ERROR;
         }
-        catch (cli.System.ObjectDisposedException _)
+        catch (cli.System.ObjectDisposedException throwaway)
         {
             lastError = WSAENOTSOCK;
             return SOCKET_ERROR;
@@ -545,7 +545,7 @@ public final class Winsock
             lastError = x.get_ErrorCode();
             return SOCKET_ERROR;
         }
-        catch (cli.System.ObjectDisposedException _)
+        catch (cli.System.ObjectDisposedException throwaway)
         {
             lastError = WSAENOTSOCK;
             return SOCKET_ERROR;
@@ -642,7 +642,7 @@ public final class Winsock
                 }
             }
         }
-        catch (cli.System.ArgumentNullException _)
+        catch (cli.System.ArgumentNullException throwaway)
         {
             lastError = WSAEINVAL;
             return SOCKET_ERROR;
@@ -652,7 +652,7 @@ public final class Winsock
             lastError = x.get_ErrorCode();
             return SOCKET_ERROR;
         }
-        catch (cli.System.ObjectDisposedException _)
+        catch (cli.System.ObjectDisposedException throwaway)
         {
             lastError = WSAENOTSOCK;
             return SOCKET_ERROR;
@@ -678,7 +678,7 @@ public final class Winsock
             if (false) throw new cli.System.ObjectDisposedException("");
             return socket.Send(buf, off, len, SocketFlags.wrap(flags));
         }
-        catch (cli.System.ArgumentException _)
+        catch (cli.System.ArgumentException throwaway)
         {
             lastError = WSAEINVAL;
             return SOCKET_ERROR;
@@ -688,7 +688,7 @@ public final class Winsock
             lastError = x.get_ErrorCode();
             return SOCKET_ERROR;
         }
-        catch (cli.System.ObjectDisposedException _)
+        catch (cli.System.ObjectDisposedException throwaway)
         {
             lastError = WSAENOTSOCK;
             return SOCKET_ERROR;
@@ -714,7 +714,7 @@ public final class Winsock
             if (false) throw new cli.System.ObjectDisposedException("");
             return socket.Receive(buf, off, len, SocketFlags.wrap(flags));
         }
-        catch (cli.System.ArgumentException _)
+        catch (cli.System.ArgumentException throwaway)
         {
             lastError = WSAEINVAL;
             return SOCKET_ERROR;
@@ -724,7 +724,7 @@ public final class Winsock
             lastError = x.get_ErrorCode();
             return SOCKET_ERROR;
         }
-        catch (cli.System.ObjectDisposedException _)
+        catch (cli.System.ObjectDisposedException throwaway)
         {
             lastError = WSAENOTSOCK;
             return SOCKET_ERROR;
@@ -752,7 +752,7 @@ public final class Winsock
                 return socket.SendTo(buf, off, len, SocketFlags.wrap(flags), v4mapped(socket, to.get()));
             }
         }
-        catch (cli.System.ArgumentException _)
+        catch (cli.System.ArgumentException throwaway)
         {
             lastError = WSAEINVAL;
             return SOCKET_ERROR;
@@ -767,7 +767,7 @@ public final class Winsock
             lastError = x.get_ErrorCode();
             return SOCKET_ERROR;
         }
-        catch (cli.System.ObjectDisposedException _)
+        catch (cli.System.ObjectDisposedException throwaway)
         {
             lastError = WSAENOTSOCK;
             return SOCKET_ERROR;
@@ -804,7 +804,7 @@ public final class Winsock
                 }
             }
         }
-        catch (cli.System.ArgumentException _)
+        catch (cli.System.ArgumentException throwaway)
         {
             lastError = WSAEINVAL;
             return SOCKET_ERROR;
@@ -814,7 +814,7 @@ public final class Winsock
             lastError = x.get_ErrorCode();
             return SOCKET_ERROR;
         }
-        catch (cli.System.ObjectDisposedException _)
+        catch (cli.System.ObjectDisposedException throwaway)
         {
             lastError = WSAENOTSOCK;
             return SOCKET_ERROR;
@@ -864,7 +864,7 @@ public final class Winsock
             }
             return 0;
         }
-        catch (cli.System.ArgumentException _)
+        catch (cli.System.ArgumentException throwaway)
         {
             lastError = WSAEINVAL;
             return SOCKET_ERROR;
@@ -874,7 +874,7 @@ public final class Winsock
             lastError = x.get_ErrorCode();
             return SOCKET_ERROR;
         }
-        catch (cli.System.ObjectDisposedException _)
+        catch (cli.System.ObjectDisposedException throwaway)
         {
             lastError = WSAENOTSOCK;
             return SOCKET_ERROR;
@@ -900,12 +900,12 @@ public final class Winsock
             }
             return remote;
         }
-        catch (cli.System.ObjectDisposedException _)
+        catch (cli.System.ObjectDisposedException throwaway)
         {
             lastError = WSAENOTSOCK;
             return INVALID_SOCKET;
         }
-        catch (cli.System.InvalidOperationException _)
+        catch (cli.System.InvalidOperationException throwaway)
         {
             lastError = WSAEINVAL;
             return INVALID_SOCKET;
@@ -943,12 +943,12 @@ public final class Winsock
             name.set(ep);
             return 0;
         }
-        catch (ClassCastException _)
+        catch (ClassCastException throwaway)
         {
             lastError = WSAEOPNOTSUPP;
             return SOCKET_ERROR;
         }
-        catch (cli.System.ObjectDisposedException _)
+        catch (cli.System.ObjectDisposedException throwaway)
         {
             lastError = WSAENOTSOCK;
             return SOCKET_ERROR;

@@ -71,7 +71,7 @@ public final class Startup
             }
             return (String[])(Object)list.ToArray(Type.GetType("System.String"));
         }
-        catch(Throwable _)
+        catch(Throwable throwaway1)
         {
             return new String[] { arg };
         }
@@ -130,7 +130,7 @@ public final class Startup
                 if(false) throw new InvalidOperationException();
                 Thread.get_CurrentThread().set_Name("main");
             }
-            catch(InvalidOperationException _)
+            catch(InvalidOperationException throwaway)
             {
             }
         }

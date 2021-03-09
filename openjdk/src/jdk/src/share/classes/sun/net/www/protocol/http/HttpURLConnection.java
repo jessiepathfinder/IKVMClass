@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1995, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1995, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,6 +25,7 @@
 
 package sun.net.www.protocol.http;
 
+import java.security.PrivilegedAction;
 import java.util.Arrays;
 import java.net.URL;
 import java.net.URLConnection;
@@ -65,6 +66,7 @@ import java.util.HashSet;
 import java.util.HashMap;
 import java.util.Set;
 import sun.net.*;
+import sun.net.util.IPAddressUtil;
 import sun.net.www.*;
 import sun.net.www.http.HttpClient;
 import sun.net.www.http.PosterOutputStream;
@@ -103,6 +105,14 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
      */
     static final boolean validateProxy;
     static final boolean validateServer;
+
+    /** A, possibly empty, set of authentication schemes that are disabled
+     *  when proxying plain HTTP ( not HTTPS ). */
+    static final Set<String> disabledProxyingSchemes;
+
+    /** A, possibly empty, set of authentication schemes that are disabled
+     *  when setting up a tunnel for HTTPS ( HTTP CONNECT ). */
+    static final Set<String> disabledTunnelingSchemes;
 
     private StreamingOutputStream strOutputStream;
     private final static String RETRY_MSG1 =
@@ -201,6 +211,22 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
         "Via"
     };
 
+    private static String getNetProperty(String name) {
+        PrivilegedAction<String> pa = () -> NetProperties.get(name);
+        return AccessController.doPrivileged(pa);
+    }
+
+    private static Set<String> schemesListToSet(String list) {
+        if (list == null || list.isEmpty())
+            return Collections.emptySet();
+
+        Set<String> s = new HashSet<>();
+        String[] parts = list.split("\\s*,\\s*");
+        for (String part : parts)
+            s.add(part.toLowerCase(Locale.ROOT));
+        return s;
+    }
+
     static {
         maxRedirects = java.security.AccessController.doPrivileged(
             new sun.security.action.GetIntegerAction(
@@ -215,6 +241,14 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
             agent = agent + " Java/"+version;
         }
         userAgent = agent;
+
+        // A set of net properties to control the use of authentication schemes
+        // when proxing/tunneling.
+        String p = getNetProperty("jdk.http.auth.tunneling.disabledSchemes");
+        disabledTunnelingSchemes = schemesListToSet(p);
+        p = getNetProperty("jdk.http.auth.proxying.disabledSchemes");
+        disabledProxyingSchemes = schemesListToSet(p);
+
         validateProxy = java.security.AccessController.doPrivileged(
                 new sun.security.action.GetBooleanAction(
                     "http.auth.digest.validateProxy")).booleanValue();
@@ -484,7 +518,8 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
     private void checkMessageHeader(String key, String value) {
         char LF = '\n';
         int index = key.indexOf(LF);
-        if (index != -1) {
+        int index1 = key.indexOf(':');
+        if (index != -1 || index1 != -1) {
             throw new IllegalArgumentException(
                 "Illegal character(s) in message header field: " + key);
         }
@@ -791,18 +826,41 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
         this(u, null, handler);
     }
 
-    public HttpURLConnection(URL u, String host, int port) {
-        this(u, new Proxy(Proxy.Type.HTTP, InetSocketAddress.createUnresolved(host, port)));
+    private static String checkHost(String h) throws IOException {
+        if (h != null) {
+            if (h.indexOf('\n') > -1) {
+                throw new MalformedURLException("Illegal character in host");
+            }
+        }
+        return h;
+    }
+    public HttpURLConnection(URL u, String host, int port) throws IOException {
+        this(u, new Proxy(Proxy.Type.HTTP,
+                InetSocketAddress.createUnresolved(checkHost(host), port)));
     }
 
     /** this constructor is used by other protocol handlers such as ftp
         that want to use http to fetch urls on their behalf.*/
-    public HttpURLConnection(URL u, Proxy p) {
+    public HttpURLConnection(URL u, Proxy p) throws IOException {
         this(u, p, new Handler());
     }
 
-    protected HttpURLConnection(URL u, Proxy p, Handler handler) {
-        super(u);
+    private static URL checkURL(URL u) throws IOException {
+        if (u != null) {
+            if (u.toExternalForm().indexOf('\n') > -1) {
+                throw new MalformedURLException("Illegal character in URL");
+            }
+        }
+        String s = IPAddressUtil.checkAuthority(u);
+        if (s != null) {
+            throw new MalformedURLException(s);
+        }
+        return u;
+    }
+
+    protected HttpURLConnection(URL u, Proxy p, Handler handler)
+            throws IOException {
+        super(checkURL(u));
         requests = new MessageHeader();
         responses = new MessageHeader();
         userHeaders = new MessageHeader();
@@ -982,7 +1040,7 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
         SocketPermission p = URLtoSocketPermission(this.url);
         if (p != null) {
             try {
-                AccessController.doPrivileged(
+                AccessController.doPrivilegedWithCombiner(
                     new PrivilegedExceptionAction<Void>() {
                         public Void run() throws IOException {
                             plainConnect0();
@@ -1243,7 +1301,7 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
 
         if (p != null) {
             try {
-                return AccessController.doPrivileged(
+                return AccessController.doPrivilegedWithCombiner(
                     new PrivilegedExceptionAction<OutputStream>() {
                         public OutputStream run() throws IOException {
                             return getOutputStream0();
@@ -1426,7 +1484,7 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
 
         if (p != null) {
             try {
-                return AccessController.doPrivileged(
+                return AccessController.doPrivilegedWithCombiner(
                     new PrivilegedExceptionAction<InputStream>() {
                         public InputStream run() throws IOException {
                             return getInputStream0();
@@ -1585,10 +1643,13 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
                     // altered in similar ways.
 
                     AuthenticationHeader authhdr = new AuthenticationHeader (
-                            "Proxy-Authenticate", responses,
-                            new HttpCallerInfo(url, http.getProxyHostUsed(),
+                            "Proxy-Authenticate",
+                            responses,
+                            new HttpCallerInfo(url,
+                                               http.getProxyHostUsed(),
                                 http.getProxyPortUsed()),
-                            dontUseNegotiate
+                            dontUseNegotiate,
+                            disabledProxyingSchemes
                     );
 
                     if (!doingNTLMp2ndStage) {
@@ -2035,10 +2096,13 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
                     }
 
                     AuthenticationHeader authhdr = new AuthenticationHeader (
-                            "Proxy-Authenticate", responses,
-                            new HttpCallerInfo(url, http.getProxyHostUsed(),
+                            "Proxy-Authenticate",
+                            responses,
+                            new HttpCallerInfo(url,
+                                               http.getProxyHostUsed(),
                                 http.getProxyPortUsed()),
-                            dontUseNegotiate
+                            dontUseNegotiate,
+                            disabledTunnelingSchemes
                     );
                     if (!doingNTLMp2ndStage) {
                         proxyAuthentication =
@@ -2081,6 +2145,10 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
             } while (retryTunnel < maxRedirects);
 
             if (retryTunnel >= maxRedirects || (respCode != HTTP_OK)) {
+                if (respCode != HTTP_PROXY_AUTH) {
+                    // remove all but authenticate responses
+                    responses.reset();
+                }
                 throw new IOException("Unable to tunnel through proxy."+
                                       " Proxy returns \"" +
                                       statusLine + "\"");
@@ -2568,7 +2636,7 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
 
         if (p != null) {
             try {
-                return AccessController.doPrivileged(
+                return AccessController.doPrivilegedWithCombiner(
                     new PrivilegedExceptionAction<Boolean>() {
                         public Boolean run() throws IOException {
                             return followRedirect0(loc, stat, locUrl0);
@@ -2628,6 +2696,8 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
             // doesn't know about proxy.
             useProxyResponseCode = true;
         } else {
+            final URL prevURL = url;
+
             // maintain previous headers, just change the name
             // of the file we're getting
             url = locUrl;
@@ -2656,6 +2726,14 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
                 poster = null;
                 if (!checkReuseConnection())
                     connect();
+
+                if (!sameDestination(prevURL, url)) {
+                    // Ensures pre-redirect user-set cookie will not be reset.
+                    // CookieHandler, if any, will be queried to determine
+                    // cookies for redirected URL, if any.
+                    userCookies = null;
+                    userCookies2 = null;
+                }
             } else {
                 if (!checkReuseConnection())
                     connect();
@@ -2678,8 +2756,49 @@ public class HttpURLConnection extends java.net.HttpURLConnection {
                     }
                     requests.set("Host", host);
                 }
+
+                if (!sameDestination(prevURL, url)) {
+                    // Redirecting to a different destination will drop any
+                    // security-sensitive headers, regardless of whether
+                    // they are user-set or not. CookieHandler, if any, will be
+                    // queried to determine cookies for redirected URL, if any.
+                    userCookies = null;
+                    userCookies2 = null;
+                    requests.remove("Cookie");
+                    requests.remove("Cookie2");
+                    requests.remove("Authorization");
+
+                    // check for preemptive authorization
+                    AuthenticationInfo sauth =
+                            AuthenticationInfo.getServerAuth(url);
+                    if (sauth != null && sauth.supportsPreemptiveAuthorization() ) {
+                        // Sets "Authorization"
+                        requests.setIfNotSet(sauth.getHeaderName(), sauth.getHeaderValue(url,method));
+                        currentServerCredentials = sauth;
+                    }
+                }
             }
         }
+        return true;
+    }
+
+    /* Returns true iff the given URLs have the same host and effective port. */
+    private static boolean sameDestination(URL firstURL, URL secondURL) {
+        assert firstURL.getProtocol().equalsIgnoreCase(secondURL.getProtocol()):
+               "protocols not equal: " + firstURL +  " - " + secondURL;
+
+        if (!firstURL.getHost().equalsIgnoreCase(secondURL.getHost()))
+            return false;
+
+        int firstPort = firstURL.getPort();
+        if (firstPort == -1)
+            firstPort = firstURL.getDefaultPort();
+        int secondPort = secondURL.getPort();
+        if (secondPort == -1)
+            secondPort = secondURL.getDefaultPort();
+        if (firstPort != secondPort)
+            return false;
+
         return true;
     }
 

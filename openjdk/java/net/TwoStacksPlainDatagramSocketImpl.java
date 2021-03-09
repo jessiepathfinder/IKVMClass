@@ -1172,36 +1172,40 @@ class TwoStacksPlainDatagramSocketImpl extends AbstractPlainDatagramSocketImpl
 			this.fd1 = null;
 		}
     }
+	
+	private final Object anticlosinglock = new String("");
 
-    protected synchronized void datagramSocketClose() {
+    protected void datagramSocketClose() {
         /*
 		 * REMIND: PUT A LOCK AROUND THIS CODE
 		 */
 		//OK! Here you go!
-		FileDescriptor fdObj = this.fd;
-		FileDescriptor fd1Obj = this.fd1;
-		boolean ipv6_supported = ipv6_available();
-		cli.System.Net.Sockets.Socket fd = null, fd1 = null;
+		synchronized(anticlosinglock){
+			FileDescriptor fdObj = this.fd;
+			FileDescriptor fd1Obj = this.fd1;
+			boolean ipv6_supported = ipv6_available();
+			cli.System.Net.Sockets.Socket fd = null, fd1 = null;
 
-		if (IS_NULL(fdObj) && (!ipv6_supported || IS_NULL(fd1Obj))) {
-			return;
-		}
-
-		if (!IS_NULL(fdObj)) {
-			fd = fdObj.getSocket();
-			if (fd != null) {
-				fdObj.setSocket(null);
-				NET_SocketClose(fd);
-			}
-		}
-
-		if (ipv6_supported && fd1Obj != NULL) {
-			fd1 = fd1Obj.getSocket();
-			if (fd1 == null) {
+			if (IS_NULL(fdObj) && (!ipv6_supported || IS_NULL(fd1Obj))) {
 				return;
 			}
-			fd1Obj.setSocket(null);
-			NET_SocketClose(fd1);
+
+			if (!IS_NULL(fdObj)) {
+				fd = fdObj.getSocket();
+				if (fd != null) {
+					fdObj.setSocket(null);
+					NET_SocketClose(fd);
+				}
+			}
+
+			if (ipv6_supported && fd1Obj != NULL) {
+				fd1 = fd1Obj.getSocket();
+				if (fd1 == null) {
+					return;
+				}
+				fd1Obj.setSocket(null);
+				NET_SocketClose(fd1);
+			}
 		}
     }
 	static int isAdapterIpv6Enabled(int index) {
@@ -1730,4 +1734,26 @@ class TwoStacksPlainDatagramSocketImpl extends AbstractPlainDatagramSocketImpl
 			WSAIoctl(fd,SIO_UDP_CONNRESET,false);
 		}
     }
+	
+	@Override int dataAvailable(){
+		//A pretty bad implementation
+		int peek = 0;
+		synchronized(anticlosinglock){
+			if (connectedAddress == null) {
+				
+			} else if (isClosed()) {
+				
+			} else{
+				try{
+					peek = peek(connectedAddress);
+				} catch (Throwable fuckingThrowable){
+					
+				}
+				if(peek != -1){
+					peek = 1;
+				}
+			}
+		}
+		return peek;
+	}
 }

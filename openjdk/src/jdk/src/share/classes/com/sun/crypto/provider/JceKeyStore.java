@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1998, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,14 +25,18 @@
 
 package com.sun.crypto.provider;
 
+import sun.security.util.Debug;
+
 import java.io.*;
 import java.util.*;
+import java.security.AccessController;
 import java.security.DigestInputStream;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.Key;
 import java.security.PrivateKey;
+import java.security.PrivilegedAction;
 import java.security.KeyStoreSpi;
 import java.security.KeyStoreException;
 import java.security.UnrecoverableKeyException;
@@ -40,6 +44,9 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.security.cert.CertificateException;
 import javax.crypto.SealedObject;
+
+import sun.misc.IOUtils;
+import sun.misc.ObjectInputFilter;
 
 /**
  * This class provides the keystore implementation referred to as "jceks".
@@ -57,6 +64,7 @@ import javax.crypto.SealedObject;
 
 public final class JceKeyStore extends KeyStoreSpi {
 
+    private static final Debug debug = Debug.getInstance("keystore");
     private static final int JCEKS_MAGIC = 0xcececece;
     private static final int JKS_MAGIC = 0xfeedfeed;
     private static final int VERSION_1 = 0x01;
@@ -66,13 +74,19 @@ public final class JceKeyStore extends KeyStoreSpi {
     private static final class PrivateKeyEntry {
         Date date; // the creation date of this entry
         byte[] protectedKey;
-        Certificate chain[];
+        Certificate[] chain;
     };
 
     // Secret key
     private static final class SecretKeyEntry {
         Date date; // the creation date of this entry
         SealedObject sealedKey;
+
+        // Maximum possible length of sealedKey. Used to detect malicious
+        // input data. This field is set to the file length of the keystore
+        // at loading. It is useless when creating a new SecretKeyEntry
+        // to be store in a keystore.
+        int maxLength;
     }
 
     // Trusted certificate
@@ -107,7 +121,7 @@ public final class JceKeyStore extends KeyStoreSpi {
     {
         Key key = null;
 
-        Object entry = entries.get(alias.toLowerCase());
+        Object entry = entries.get(alias.toLowerCase(Locale.ENGLISH));
 
         if (!((entry instanceof PrivateKeyEntry) ||
               (entry instanceof SecretKeyEntry))) {
@@ -128,8 +142,8 @@ public final class JceKeyStore extends KeyStoreSpi {
             }
             key = keyProtector.recover(encrInfo);
         } else {
-            key =
-                keyProtector.unseal(((SecretKeyEntry)entry).sealedKey);
+            SecretKeyEntry ske = ((SecretKeyEntry)entry);
+            key = keyProtector.unseal(ske.sealedKey, ske.maxLength);
         }
 
         return key;
@@ -150,7 +164,7 @@ public final class JceKeyStore extends KeyStoreSpi {
     {
         Certificate[] chain = null;
 
-        Object entry = entries.get(alias.toLowerCase());
+        Object entry = entries.get(alias.toLowerCase(Locale.ENGLISH));
 
         if ((entry instanceof PrivateKeyEntry)
             && (((PrivateKeyEntry)entry).chain != null)) {
@@ -178,7 +192,7 @@ public final class JceKeyStore extends KeyStoreSpi {
     public Certificate engineGetCertificate(String alias) {
         Certificate cert = null;
 
-        Object entry = entries.get(alias.toLowerCase());
+        Object entry = entries.get(alias.toLowerCase(Locale.ENGLISH));
 
         if (entry != null) {
             if (entry instanceof TrustedCertEntry) {
@@ -203,7 +217,7 @@ public final class JceKeyStore extends KeyStoreSpi {
     public Date engineGetCreationDate(String alias) {
         Date date = null;
 
-        Object entry = entries.get(alias.toLowerCase());
+        Object entry = entries.get(alias.toLowerCase(Locale.ENGLISH));
 
         if (entry != null) {
             // We have to create a new instance of java.util.Date because
@@ -266,7 +280,7 @@ public final class JceKeyStore extends KeyStoreSpi {
                     }
 
                     // store the entry
-                    entries.put(alias.toLowerCase(), entry);
+                    entries.put(alias.toLowerCase(Locale.ENGLISH), entry);
 
                 } else {
                     SecretKeyEntry entry = new SecretKeyEntry();
@@ -274,7 +288,8 @@ public final class JceKeyStore extends KeyStoreSpi {
 
                     // seal and store the key
                     entry.sealedKey = keyProtector.seal(key);
-                    entries.put(alias.toLowerCase(), entry);
+                    entry.maxLength = Integer.MAX_VALUE;
+                    entries.put(alias.toLowerCase(Locale.ENGLISH), entry);
                 }
 
             } catch (Exception e) {
@@ -322,7 +337,7 @@ public final class JceKeyStore extends KeyStoreSpi {
                 entry.chain = null;
             }
 
-            entries.put(alias.toLowerCase(), entry);
+            entries.put(alias.toLowerCase(Locale.ENGLISH), entry);
         }
     }
 
@@ -345,7 +360,7 @@ public final class JceKeyStore extends KeyStoreSpi {
     {
         synchronized(entries) {
 
-            Object entry = entries.get(alias.toLowerCase());
+            Object entry = entries.get(alias.toLowerCase(Locale.ENGLISH));
             if (entry != null) {
                 if (entry instanceof PrivateKeyEntry) {
                     throw new KeyStoreException("Cannot overwrite own "
@@ -358,7 +373,7 @@ public final class JceKeyStore extends KeyStoreSpi {
             TrustedCertEntry trustedCertEntry = new TrustedCertEntry();
             trustedCertEntry.cert = cert;
             trustedCertEntry.date = new Date();
-            entries.put(alias.toLowerCase(), trustedCertEntry);
+            entries.put(alias.toLowerCase(Locale.ENGLISH), trustedCertEntry);
         }
     }
 
@@ -373,7 +388,7 @@ public final class JceKeyStore extends KeyStoreSpi {
         throws KeyStoreException
     {
         synchronized(entries) {
-            entries.remove(alias.toLowerCase());
+            entries.remove(alias.toLowerCase(Locale.ENGLISH));
         }
     }
 
@@ -394,7 +409,7 @@ public final class JceKeyStore extends KeyStoreSpi {
      * @return true if the alias exists, false otherwise
      */
     public boolean engineContainsAlias(String alias) {
-        return entries.containsKey(alias.toLowerCase());
+        return entries.containsKey(alias.toLowerCase(Locale.ENGLISH));
     }
 
     /**
@@ -416,7 +431,7 @@ public final class JceKeyStore extends KeyStoreSpi {
     public boolean engineIsKeyEntry(String alias) {
         boolean isKey = false;
 
-        Object entry = entries.get(alias.toLowerCase());
+        Object entry = entries.get(alias.toLowerCase(Locale.ENGLISH));
         if ((entry instanceof PrivateKeyEntry)
             || (entry instanceof SecretKeyEntry)) {
             isKey = true;
@@ -434,7 +449,7 @@ public final class JceKeyStore extends KeyStoreSpi {
      */
     public boolean engineIsCertificateEntry(String alias) {
         boolean isCert = false;
-        Object entry = entries.get(alias.toLowerCase());
+        Object entry = entries.get(alias.toLowerCase(Locale.ENGLISH));
         if (entry instanceof TrustedCertEntry) {
             isCert = true;
         }
@@ -678,10 +693,15 @@ public final class JceKeyStore extends KeyStoreSpi {
             Hashtable<String, CertificateFactory> cfs = null;
             ByteArrayInputStream bais = null;
             byte[] encoded = null;
+            int trustedKeyCount = 0, privateKeyCount = 0, secretKeyCount = 0;
 
             if (stream == null)
                 return;
 
+            byte[] allData = IOUtils.readAllBytes(stream);
+            int fullLength = allData.length;
+
+            stream = new ByteArrayInputStream(allData);
             if (password != null) {
                 md = getPreKeyedHash(password);
                 dis = new DataInputStream(new DigestInputStream(stream, md));
@@ -724,7 +744,7 @@ public final class JceKeyStore extends KeyStoreSpi {
                     tag = dis.readInt();
 
                     if (tag == 1) { // private-key entry
-
+                        privateKeyCount++;
                         PrivateKeyEntry entry = new PrivateKeyEntry();
 
                         // read the alias
@@ -734,23 +754,11 @@ public final class JceKeyStore extends KeyStoreSpi {
                         entry.date = new Date(dis.readLong());
 
                         // read the private key
-                        try {
-                            entry.protectedKey = new byte[dis.readInt()];
-                        } catch (OutOfMemoryError e) {
-                            throw new IOException("Keysize too big");
-                        }
-                        dis.readFully(entry.protectedKey);
+                        entry.protectedKey = IOUtils.readExactlyNBytes(dis, dis.readInt());
 
                         // read the certificate chain
                         int numOfCerts = dis.readInt();
-                        try {
-                            if (numOfCerts > 0) {
-                                entry.chain = new Certificate[numOfCerts];
-                            }
-                        } catch (OutOfMemoryError e) {
-                            throw new IOException("Too many certificates in "
-                                                  + "chain");
-                        }
+                        List<Certificate> tmpCerts = new ArrayList<>();
                         for (int j = 0; j < numOfCerts; j++) {
                             if (xVersion == 2) {
                                 // read the certificate type, and instantiate a
@@ -758,33 +766,30 @@ public final class JceKeyStore extends KeyStoreSpi {
                                 // existing factory if possible)
                                 String certType = dis.readUTF();
                                 if (cfs.containsKey(certType)) {
-                                // reuse certificate factory
+                                    // reuse certificate factory
                                     cf = cfs.get(certType);
                                 } else {
-                                // create new certificate factory
+                                    // create new certificate factory
                                     cf = CertificateFactory.getInstance(
                                         certType);
-                                // store the certificate factory so we can
-                                // reuse it later
+                                    // store the certificate factory so we can
+                                    // reuse it later
                                     cfs.put(certType, cf);
                                 }
                             }
                             // instantiate the certificate
-                            try {
-                                encoded = new byte[dis.readInt()];
-                            } catch (OutOfMemoryError e) {
-                                throw new IOException("Certificate too big");
-                            }
-                            dis.readFully(encoded);
+                            encoded = IOUtils.readExactlyNBytes(dis, dis.readInt());
                             bais = new ByteArrayInputStream(encoded);
-                            entry.chain[j] = cf.generateCertificate(bais);
+                            tmpCerts.add(cf.generateCertificate(bais));
                         }
+                        entry.chain = tmpCerts.toArray(
+                                new Certificate[numOfCerts]);
 
                         // Add the entry to the list
                         entries.put(alias, entry);
 
                     } else if (tag == 2) { // trusted certificate entry
-
+                        trustedKeyCount++;
                         TrustedCertEntry entry = new TrustedCertEntry();
 
                         // read the alias
@@ -810,12 +815,7 @@ public final class JceKeyStore extends KeyStoreSpi {
                                 cfs.put(certType, cf);
                             }
                         }
-                        try {
-                            encoded = new byte[dis.readInt()];
-                        } catch (OutOfMemoryError e) {
-                            throw new IOException("Certificate too big");
-                        }
-                        dis.readFully(encoded);
+                        encoded = IOUtils.readExactlyNBytes(dis, dis.readInt());
                         bais = new ByteArrayInputStream(encoded);
                         entry.cert = cf.generateCertificate(bais);
 
@@ -823,7 +823,7 @@ public final class JceKeyStore extends KeyStoreSpi {
                         entries.put(alias, entry);
 
                     } else if (tag == 3) { // secret-key entry
-
+                        secretKeyCount++;
                         SecretKeyEntry entry = new SecretKeyEntry();
 
                         // read the alias
@@ -835,19 +835,38 @@ public final class JceKeyStore extends KeyStoreSpi {
                         // read the sealed key
                         try {
                             ois = new ObjectInputStream(dis);
+                            final ObjectInputStream ois2 = ois;
+                            // Set a deserialization checker
+                            AccessController.doPrivileged(
+                                (PrivilegedAction<Void>)() -> {
+                                    ObjectInputFilter.Config.setObjectInputFilter(
+                                        ois2, new DeserializationChecker(fullLength));
+                                    return null;
+                            });
                             entry.sealedKey = (SealedObject)ois.readObject();
+                            entry.maxLength = fullLength;
                             // NOTE: don't close ois here since we are still
                             // using dis!!!
                         } catch (ClassNotFoundException cnfe) {
                             throw new IOException(cnfe.getMessage());
+                        } catch (InvalidClassException ice) {
+                            throw new IOException("Invalid secret key format");
                         }
 
                         // Add the entry to the list
                         entries.put(alias, entry);
 
                     } else {
-                        throw new IOException("Unrecognized keystore entry");
+                        throw new IOException("Unrecognized keystore entry: " +
+                                tag);
                     }
+                }
+
+                if (debug != null) {
+                    debug.println("JceKeyStore load: private key count: " +
+                        privateKeyCount + ". trusted key count: " +
+                        trustedKeyCount + ". secret key count: " +
+                        secretKeyCount);
                 }
 
                 /*
@@ -856,16 +875,14 @@ public final class JceKeyStore extends KeyStoreSpi {
                  * with
                  */
                 if (password != null) {
-                    byte computed[], actual[];
-                    computed = md.digest();
-                    actual = new byte[computed.length];
-                    dis.readFully(actual);
-                    for (int i = 0; i < computed.length; i++) {
-                        if (computed[i] != actual[i]) {
-                            throw new IOException(
+                    byte[] computed = md.digest();
+                    byte[] actual = IOUtils.readExactlyNBytes(dis, computed.length);
+                    if (!MessageDigest.isEqual(computed, actual)) {
+                        throw new IOException(
                                 "Keystore was tampered with, or "
-                                + "password was incorrect");
-                        }
+                                + "password was incorrect",
+                                new UnrecoverableKeyException(
+                                        "Password verification failed"));
                     }
                 }
             }  finally {
@@ -897,5 +914,58 @@ public final class JceKeyStore extends KeyStoreSpi {
             passwdBytes[i] = 0;
         md.update("Mighty Aphrodite".getBytes("UTF8"));
         return md;
+    }
+
+    /*
+     * An ObjectInputFilter that checks the format of the secret key being
+     * deserialized.
+     */
+    private static class DeserializationChecker implements ObjectInputFilter {
+
+        // Full length of keystore, anything inside a SecretKeyEntry should not
+        // be bigger. Otherwise, must be illegal.
+        private final int fullLength;
+
+        public DeserializationChecker(int fullLength) {
+            this.fullLength = fullLength;
+        }
+
+        @Override
+        public ObjectInputFilter.Status
+            checkInput(ObjectInputFilter.FilterInfo info) {
+
+            if (info.arrayLength() > fullLength) {
+                return Status.REJECTED;
+            }
+            // First run a custom filter
+            Class<?> clazz = info.serialClass();
+            switch((int)info.depth()) {
+                case 1:
+                    if (clazz != SealedObjectForKeyProtector.class) {
+                        return Status.REJECTED;
+                    }
+                    break;
+                case 2:
+                    if (clazz != null && clazz != SealedObject.class
+                            && clazz != byte[].class) {
+                        return Status.REJECTED;
+                    }
+                    break;
+                default:
+                    if (clazz != null && clazz != Object.class) {
+                        return Status.REJECTED;
+                    }
+                    break;
+            }
+
+            // Next run the default filter, if available
+            ObjectInputFilter defaultFilter =
+                ObjectInputFilter.Config.getSerialFilter();
+            if (defaultFilter != null) {
+                return defaultFilter.checkInput(info);
+            }
+
+            return Status.UNDECIDED;
+        }
     }
 }

@@ -154,9 +154,9 @@ public class ProtectionDomain {
             try {
                 if (false) throw new cli.System.NotSupportedException();
                 url = new java.net.URL(assembly.get_EscapedCodeBase());
-            } catch (java.net.MalformedURLException _) {
+            } catch (java.net.MalformedURLException throwaway) {
                 url = null;
-            } catch (cli.System.NotSupportedException _) {
+            } catch (cli.System.NotSupportedException throwaway) {
                 // dynamic assemblies don't have a codebase
                 url = null;
             }
@@ -513,6 +513,7 @@ public class ProtectionDomain {
     static {
         SharedSecrets.setJavaSecurityProtectionDomainAccess(
             new JavaSecurityProtectionDomainAccess() {
+                @Override
                 public ProtectionDomainCache getProtectionDomainCache() {
                     return new ProtectionDomainCache() {
                         private final Map<Key, PermissionCollection> map =
@@ -526,6 +527,11 @@ public class ProtectionDomain {
                             return pd == null ? map.get(null) : map.get(pd.key);
                         }
                     };
+                }
+
+                @Override
+                public boolean getStaticPermissionsField(ProtectionDomain pd) {
+                    return pd.staticPermissions;
                 }
             });
     }

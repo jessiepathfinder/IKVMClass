@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998, 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1998, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -82,7 +82,7 @@ public final class BlowfishCipher extends CipherSpi {
     /**
      * Sets the padding mechanism of this cipher.
      *
-     * @param padding the padding mechanism
+     * @param paddingScheme the padding mechanism
      *
      * @exception NoSuchPaddingException if the requested padding mechanism
      * does not exist
@@ -373,7 +373,7 @@ public final class BlowfishCipher extends CipherSpi {
      * @exception InvalidKeyException if <code>key</code> is invalid.
      */
     protected int engineGetKeySize(Key key) throws InvalidKeyException {
-        return (key.getEncoded().length * 8);
+        return Math.multiplyExact(key.getEncoded().length, 8);
     }
 
     /**

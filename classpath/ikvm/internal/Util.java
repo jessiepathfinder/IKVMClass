@@ -54,7 +54,7 @@ public final class Util
             if (false) throw new cli.System.Security.SecurityException();
             return cli.System.Environment.GetEnvironmentVariable(name);
         }
-        catch (cli.System.Security.SecurityException _)
+        catch (cli.System.Security.SecurityException throwaway)
         {
             return null;
         }

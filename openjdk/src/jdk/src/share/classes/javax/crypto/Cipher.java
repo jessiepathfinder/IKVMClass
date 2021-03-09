@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1997, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -52,14 +52,14 @@ import sun.security.jca.*;
  * Extension (JCE) framework.
  *
  * <p>In order to create a Cipher object, the application calls the
- * Cipher's <code>getInstance</code> method, and passes the name of the
+ * Cipher's {@code getInstance} method, and passes the name of the
  * requested <i>transformation</i> to it. Optionally, the name of a provider
  * may be specified.
  *
  * <p>A <i>transformation</i> is a string that describes the operation (or
  * set of operations) to be performed on the given input, to produce some
  * output. A transformation always includes the name of a cryptographic
- * algorithm (e.g., <i>DES</i>), and may be followed by a feedback mode and
+ * algorithm (e.g., <i>AES</i>), and may be followed by a feedback mode and
  * padding scheme.
  *
  * <p> A transformation is of the form:
@@ -75,17 +75,16 @@ import sun.security.jca.*;
  * For example, the following is a valid transformation:
  *
  * <pre>
- *     Cipher c = Cipher.getInstance("<i>DES/CBC/PKCS5Padding</i>");
+ *     Cipher c = Cipher.getInstance("<i>AES/CBC/PKCS5Padding</i>");
  * </pre>
  *
- * Using modes such as <code>CFB</code> and <code>OFB</code>, block
+ * Using modes such as {@code CFB} and {@code OFB}, block
  * ciphers can encrypt data in units smaller than the cipher's actual
  * block size.  When requesting such a mode, you may optionally specify
  * the number of bits to be processed at a time by appending this number
- * to the mode name as shown in the "<code>DES/CFB8/NoPadding</code>" and
- * "<code>DES/OFB32/PKCS5Padding</code>" transformations. If no such
- * number is specified, a provider-specific default is used. (For
- * example, the SunJCE provider uses a default of 64 bits for DES.)
+ * to the mode name as shown in the "{@code AES/CFB8/NoPadding}" and
+ * "{@code AES/OFB32/PKCS5Padding}" transformations. If no such
+ * number is specified, a provider-specific default is used.
  * Thus, block ciphers can be turned into byte-oriented stream ciphers by
  * using an 8 bit mode such as CFB8 or OFB8.
  * <p>
@@ -130,24 +129,24 @@ import sun.security.jca.*;
  *
  * </pre>
  * Every implementation of the Java platform is required to support
- * the following standard <code>Cipher</code> transformations with the keysizes
+ * the following standard {@code Cipher} transformations with the keysizes
  * in parentheses:
  * <ul>
- * <li><tt>AES/CBC/NoPadding</tt> (128)</li>
- * <li><tt>AES/CBC/PKCS5Padding</tt> (128)</li>
- * <li><tt>AES/ECB/NoPadding</tt> (128)</li>
- * <li><tt>AES/ECB/PKCS5Padding</tt> (128)</li>
- * <li><tt>DES/CBC/NoPadding</tt> (56)</li>
- * <li><tt>DES/CBC/PKCS5Padding</tt> (56)</li>
- * <li><tt>DES/ECB/NoPadding</tt> (56)</li>
- * <li><tt>DES/ECB/PKCS5Padding</tt> (56)</li>
- * <li><tt>DESede/CBC/NoPadding</tt> (168)</li>
- * <li><tt>DESede/CBC/PKCS5Padding</tt> (168)</li>
- * <li><tt>DESede/ECB/NoPadding</tt> (168)</li>
- * <li><tt>DESede/ECB/PKCS5Padding</tt> (168)</li>
- * <li><tt>RSA/ECB/PKCS1Padding</tt> (1024, 2048)</li>
- * <li><tt>RSA/ECB/OAEPWithSHA-1AndMGF1Padding</tt> (1024, 2048)</li>
- * <li><tt>RSA/ECB/OAEPWithSHA-256AndMGF1Padding</tt> (1024, 2048)</li>
+ * <li>{@code AES/CBC/NoPadding} (128)</li>
+ * <li>{@code AES/CBC/PKCS5Padding} (128)</li>
+ * <li>{@code AES/ECB/NoPadding} (128)</li>
+ * <li>{@code AES/ECB/PKCS5Padding} (128)</li>
+ * <li>{@code DES/CBC/NoPadding} (56)</li>
+ * <li>{@code DES/CBC/PKCS5Padding} (56)</li>
+ * <li>{@code DES/ECB/NoPadding} (56)</li>
+ * <li>{@code DES/ECB/PKCS5Padding} (56)</li>
+ * <li>{@code DESede/CBC/NoPadding} (168)</li>
+ * <li>{@code DESede/CBC/PKCS5Padding} (168)</li>
+ * <li>{@code DESede/ECB/NoPadding} (168)</li>
+ * <li>{@code DESede/ECB/PKCS5Padding} (168)</li>
+ * <li>{@code RSA/ECB/PKCS1Padding} (1024, 2048)</li>
+ * <li>{@code RSA/ECB/OAEPWithSHA-1AndMGF1Padding} (1024, 2048)</li>
+ * <li>{@code RSA/ECB/OAEPWithSHA-256AndMGF1Padding} (1024, 2048)</li>
  * </ul>
  * These transformations are described in the
  * <a href="{@docRoot}/../technotes/guides/security/StandardNames.html#Cipher">
@@ -307,7 +306,7 @@ public class Cipher {
         /*
          * array containing the components of a Cipher transformation:
          *
-         * index 0: algorithm component (e.g., DES)
+         * index 0: algorithm component (e.g., AES)
          * index 1: feedback component (e.g., CFB)
          * index 2: padding component (e.g., PKCS5Padding)
          */
@@ -318,10 +317,14 @@ public class Cipher {
             while (parser.hasMoreTokens() && count < 3) {
                 parts[count++] = parser.nextToken().trim();
             }
-            if (count == 0 || count == 2 || parser.hasMoreTokens()) {
+            if (count == 0 || count == 2) {
                 throw new NoSuchAlgorithmException("Invalid transformation"
                                                + " format:" +
                                                transformation);
+            }
+            // treats all subsequent tokens as part of padding
+            if (count == 3 && parser.hasMoreTokens()) {
+                parts[2] = parts[2] + parser.nextToken("\r\n");
             }
         } catch (NoSuchElementException e) {
             throw new NoSuchAlgorithmException("Invalid transformation " +
@@ -353,8 +356,8 @@ public class Cipher {
         // transform string to lookup in the provider
         final String transform;
         // the mode/padding suffix in upper case. for example, if the algorithm
-        // to lookup is "DES/CBC/PKCS5Padding" suffix is "/CBC/PKCS5PADDING"
-        // if loopup is "DES", suffix is the empty string
+        // to lookup is "AES/CBC/PKCS5Padding" suffix is "/CBC/PKCS5PADDING"
+        // if lookup is "AES", suffix is the empty string
         // needed because aliases prevent straight transform.equals()
         final String suffix;
         // value to pass to setMode() or null if no such call required
@@ -439,11 +442,11 @@ public class Cipher {
         }
 
         if ((mode == null) && (pad == null)) {
-            // DES
+            // AES
             Transform tr = new Transform(alg, "", null, null);
             return Collections.singletonList(tr);
         } else { // if ((mode != null) && (pad != null)) {
-            // DES/CBC/PKCS5Padding
+            // AES/CBC/PKCS5Padding
             List<Transform> list = new ArrayList<>(4);
             list.add(new Transform(alg, "/" + mode + "/" + pad, null, null));
             list.add(new Transform(alg, "/" + mode, null, pad));
@@ -466,7 +469,7 @@ public class Cipher {
     }
 
     /**
-     * Returns a <code>Cipher</code> object that implements the specified
+     * Returns a {@code Cipher} object that implements the specified
      * transformation.
      *
      * <p> This method traverses the list of registered security Providers,
@@ -479,7 +482,7 @@ public class Cipher {
      * the {@link Security#getProviders() Security.getProviders()} method.
      *
      * @param transformation the name of the transformation, e.g.,
-     * <i>DES/CBC/PKCS5Padding</i>.
+     * <i>AES/CBC/PKCS5Padding</i>.
      * See the Cipher section in the <a href=
      *   "{@docRoot}/../technotes/guides/security/StandardNames.html#Cipher">
      * Java Cryptography Architecture Standard Algorithm Name Documentation</a>
@@ -487,12 +490,12 @@ public class Cipher {
      *
      * @return a cipher that implements the requested transformation.
      *
-     * @exception NoSuchAlgorithmException if <code>transformation</code>
+     * @exception NoSuchAlgorithmException if {@code transformation}
      *          is null, empty, in an invalid format,
      *          or if no Provider supports a CipherSpi implementation for the
      *          specified algorithm.
      *
-     * @exception NoSuchPaddingException if <code>transformation</code>
+     * @exception NoSuchPaddingException if {@code transformation}
      *          contains a padding scheme that is not available.
      *
      * @see java.security.Provider
@@ -542,7 +545,7 @@ public class Cipher {
     }
 
     /**
-     * Returns a <code>Cipher</code> object that implements the specified
+     * Returns a {@code Cipher} object that implements the specified
      * transformation.
      *
      * <p> A new Cipher object encapsulating the
@@ -554,7 +557,7 @@ public class Cipher {
      * the {@link Security#getProviders() Security.getProviders()} method.
      *
      * @param transformation the name of the transformation,
-     * e.g., <i>DES/CBC/PKCS5Padding</i>.
+     * e.g., <i>AES/CBC/PKCS5Padding</i>.
      * See the Cipher section in the <a href=
      *   "{@docRoot}/../technotes/guides/security/StandardNames.html#Cipher">
      * Java Cryptography Architecture Standard Algorithm Name Documentation</a>
@@ -564,7 +567,7 @@ public class Cipher {
      *
      * @return a cipher that implements the requested transformation.
      *
-     * @exception NoSuchAlgorithmException if <code>transformation</code>
+     * @exception NoSuchAlgorithmException if {@code transformation}
      *          is null, empty, in an invalid format,
      *          or if a CipherSpi implementation for the specified algorithm
      *          is not available from the specified provider.
@@ -572,10 +575,10 @@ public class Cipher {
      * @exception NoSuchProviderException if the specified provider is not
      *          registered in the security provider list.
      *
-     * @exception NoSuchPaddingException if <code>transformation</code>
+     * @exception NoSuchPaddingException if {@code transformation}
      *          contains a padding scheme that is not available.
      *
-     * @exception IllegalArgumentException if the <code>provider</code>
+     * @exception IllegalArgumentException if the {@code provider}
      *          is null or empty.
      *
      * @see java.security.Provider
@@ -597,7 +600,7 @@ public class Cipher {
     }
 
     /**
-     * Returns a <code>Cipher</code> object that implements the specified
+     * Returns a {@code Cipher} object that implements the specified
      * transformation.
      *
      * <p> A new Cipher object encapsulating the
@@ -606,7 +609,7 @@ public class Cipher {
      * does not have to be registered in the provider list.
      *
      * @param transformation the name of the transformation,
-     * e.g., <i>DES/CBC/PKCS5Padding</i>.
+     * e.g., <i>AES/CBC/PKCS5Padding</i>.
      * See the Cipher section in the <a href=
      *   "{@docRoot}/../technotes/guides/security/StandardNames.html#Cipher">
      * Java Cryptography Architecture Standard Algorithm Name Documentation</a>
@@ -616,15 +619,15 @@ public class Cipher {
      *
      * @return a cipher that implements the requested transformation.
      *
-     * @exception NoSuchAlgorithmException if <code>transformation</code>
+     * @exception NoSuchAlgorithmException if {@code transformation}
      *          is null, empty, in an invalid format,
      *          or if a CipherSpi implementation for the specified algorithm
      *          is not available from the specified Provider object.
      *
-     * @exception NoSuchPaddingException if <code>transformation</code>
+     * @exception NoSuchPaddingException if {@code transformation}
      *          contains a padding scheme that is not available.
      *
-     * @exception IllegalArgumentException if the <code>provider</code>
+     * @exception IllegalArgumentException if the {@code provider}
      *          is null.
      *
      * @see java.security.Provider
@@ -897,9 +900,9 @@ public class Cipher {
     }
 
     /**
-     * Returns the provider of this <code>Cipher</code> object.
+     * Returns the provider of this {@code Cipher} object.
      *
-     * @return the provider of this <code>Cipher</code> object
+     * @return the provider of this {@code Cipher} object
      */
     public final Provider getProvider() {
         chooseFirstProvider();
@@ -907,13 +910,13 @@ public class Cipher {
     }
 
     /**
-     * Returns the algorithm name of this <code>Cipher</code> object.
+     * Returns the algorithm name of this {@code Cipher} object.
      *
      * <p>This is the same name that was specified in one of the
-     * <code>getInstance</code> calls that created this <code>Cipher</code>
+     * {@code getInstance} calls that created this {@code Cipher}
      * object..
      *
-     * @return the algorithm name of this <code>Cipher</code> object.
+     * @return the algorithm name of this {@code Cipher} object.
      */
     public final String getAlgorithm() {
         return this.transformation;
@@ -932,15 +935,15 @@ public class Cipher {
 
     /**
      * Returns the length in bytes that an output buffer would need to be in
-     * order to hold the result of the next <code>update</code> or
-     * <code>doFinal</code> operation, given the input length
-     * <code>inputLen</code> (in bytes).
+     * order to hold the result of the next {@code update} or
+     * {@code doFinal} operation, given the input length
+     * {@code inputLen} (in bytes).
      *
      * <p>This call takes into account any unprocessed (buffered) data from a
-     * previous <code>update</code> call, padding, and AEAD tagging.
+     * previous {@code update} call, padding, and AEAD tagging.
      *
-     * <p>The actual output length of the next <code>update</code> or
-     * <code>doFinal</code> call may be smaller than the length returned by
+     * <p>The actual output length of the next {@code update} or
+     * {@code doFinal} call may be smaller than the length returned by
      * this method.
      *
      * @param inputLen the input length (in bytes)
@@ -1135,14 +1138,14 @@ public class Cipher {
      *
      * <p>The cipher is initialized for one of the following four operations:
      * encryption, decryption, key wrapping or key unwrapping, depending
-     * on the value of <code>opmode</code>.
+     * on the value of {@code opmode}.
      *
      * <p>If this cipher requires any algorithm parameters that cannot be
-     * derived from the given <code>key</code>, the underlying cipher
+     * derived from the given {@code key}, the underlying cipher
      * implementation is supposed to generate the required parameters itself
      * (using provider-specific default or random values) if it is being
      * initialized for encryption or key wrapping, and raise an
-     * <code>InvalidKeyException</code> if it is being
+     * {@code InvalidKeyException} if it is being
      * initialized for decryption or key unwrapping.
      * The generated parameters can be retrieved using
      * {@link #getParameters() getParameters} or
@@ -1168,8 +1171,8 @@ public class Cipher {
      *
      * @param opmode the operation mode of this cipher (this is one of
      * the following:
-     * <code>ENCRYPT_MODE</code>, <code>DECRYPT_MODE</code>,
-     * <code>WRAP_MODE</code> or <code>UNWRAP_MODE</code>)
+     * {@code ENCRYPT_MODE}, {@code DECRYPT_MODE},
+     * {@code WRAP_MODE} or {@code UNWRAP_MODE})
      * @param key the key
      *
      * @exception InvalidKeyException if the given key is inappropriate for
@@ -1191,14 +1194,14 @@ public class Cipher {
      *
      * <p>The cipher is initialized for one of the following four operations:
      * encryption, decryption, key wrapping or  key unwrapping, depending
-     * on the value of <code>opmode</code>.
+     * on the value of {@code opmode}.
      *
      * <p>If this cipher requires any algorithm parameters that cannot be
-     * derived from the given <code>key</code>, the underlying cipher
+     * derived from the given {@code key}, the underlying cipher
      * implementation is supposed to generate the required parameters itself
      * (using provider-specific default or random values) if it is being
      * initialized for encryption or key wrapping, and raise an
-     * <code>InvalidKeyException</code> if it is being
+     * {@code InvalidKeyException} if it is being
      * initialized for decryption or key unwrapping.
      * The generated parameters can be retrieved using
      * {@link #getParameters() getParameters} or
@@ -1211,7 +1214,7 @@ public class Cipher {
      *
      * <p>If this cipher (including its underlying feedback or padding scheme)
      * requires any random bytes (e.g., for parameter generation), it will get
-     * them from <code>random</code>.
+     * them from {@code random}.
      *
      * <p>Note that when a Cipher object is initialized, it loses all
      * previously-acquired state. In other words, initializing a Cipher is
@@ -1220,8 +1223,8 @@ public class Cipher {
      *
      * @param opmode the operation mode of this cipher (this is one of the
      * following:
-     * <code>ENCRYPT_MODE</code>, <code>DECRYPT_MODE</code>,
-     * <code>WRAP_MODE</code> or <code>UNWRAP_MODE</code>)
+     * {@code ENCRYPT_MODE}, {@code DECRYPT_MODE},
+     * {@code WRAP_MODE} or {@code UNWRAP_MODE})
      * @param key the encryption key
      * @param random the source of randomness
      *
@@ -1269,14 +1272,14 @@ public class Cipher {
      *
      * <p>The cipher is initialized for one of the following four operations:
      * encryption, decryption, key wrapping or  key unwrapping, depending
-     * on the value of <code>opmode</code>.
+     * on the value of {@code opmode}.
      *
      * <p>If this cipher requires any algorithm parameters and
-     * <code>params</code> is null, the underlying cipher implementation is
+     * {@code params} is null, the underlying cipher implementation is
      * supposed to generate the required parameters itself (using
      * provider-specific default or random values) if it is being
      * initialized for encryption or key wrapping, and raise an
-     * <code>InvalidAlgorithmParameterException</code> if it is being
+     * {@code InvalidAlgorithmParameterException} if it is being
      * initialized for decryption or key unwrapping.
      * The generated parameters can be retrieved using
      * {@link #getParameters() getParameters} or
@@ -1302,8 +1305,8 @@ public class Cipher {
      *
      * @param opmode the operation mode of this cipher (this is one of the
      * following:
-     * <code>ENCRYPT_MODE</code>, <code>DECRYPT_MODE</code>,
-     * <code>WRAP_MODE</code> or <code>UNWRAP_MODE</code>)
+     * {@code ENCRYPT_MODE}, {@code DECRYPT_MODE},
+     * {@code WRAP_MODE} or {@code UNWRAP_MODE})
      * @param key the encryption key
      * @param params the algorithm parameters
      *
@@ -1313,7 +1316,7 @@ public class Cipher {
      * @exception InvalidAlgorithmParameterException if the given algorithm
      * parameters are inappropriate for this cipher,
      * or this cipher requires
-     * algorithm parameters and <code>params</code> is null, or the given
+     * algorithm parameters and {@code params} is null, or the given
      * algorithm parameters imply a cryptographic strength that would exceed
      * the legal limits (as determined from the configured jurisdiction
      * policy files).
@@ -1333,14 +1336,14 @@ public class Cipher {
      *
      * <p>The cipher is initialized for one of the following four operations:
      * encryption, decryption, key wrapping or  key unwrapping, depending
-     * on the value of <code>opmode</code>.
+     * on the value of {@code opmode}.
      *
      * <p>If this cipher requires any algorithm parameters and
-     * <code>params</code> is null, the underlying cipher implementation is
+     * {@code params} is null, the underlying cipher implementation is
      * supposed to generate the required parameters itself (using
      * provider-specific default or random values) if it is being
      * initialized for encryption or key wrapping, and raise an
-     * <code>InvalidAlgorithmParameterException</code> if it is being
+     * {@code InvalidAlgorithmParameterException} if it is being
      * initialized for decryption or key unwrapping.
      * The generated parameters can be retrieved using
      * {@link #getParameters() getParameters} or
@@ -1353,7 +1356,7 @@ public class Cipher {
      *
      * <p>If this cipher (including its underlying feedback or padding scheme)
      * requires any random bytes (e.g., for parameter generation), it will get
-     * them from <code>random</code>.
+     * them from {@code random}.
      *
      * <p>Note that when a Cipher object is initialized, it loses all
      * previously-acquired state. In other words, initializing a Cipher is
@@ -1362,8 +1365,8 @@ public class Cipher {
      *
      * @param opmode the operation mode of this cipher (this is one of the
      * following:
-     * <code>ENCRYPT_MODE</code>, <code>DECRYPT_MODE</code>,
-     * <code>WRAP_MODE</code> or <code>UNWRAP_MODE</code>)
+     * {@code ENCRYPT_MODE}, {@code DECRYPT_MODE},
+     * {@code WRAP_MODE} or {@code UNWRAP_MODE})
      * @param key the encryption key
      * @param params the algorithm parameters
      * @param random the source of randomness
@@ -1374,7 +1377,7 @@ public class Cipher {
      * @exception InvalidAlgorithmParameterException if the given algorithm
      * parameters are inappropriate for this cipher,
      * or this cipher requires
-     * algorithm parameters and <code>params</code> is null, or the given
+     * algorithm parameters and {@code params} is null, or the given
      * algorithm parameters imply a cryptographic strength that would exceed
      * the legal limits (as determined from the configured jurisdiction
      * policy files).
@@ -1412,14 +1415,14 @@ public class Cipher {
      *
      * <p>The cipher is initialized for one of the following four operations:
      * encryption, decryption, key wrapping or  key unwrapping, depending
-     * on the value of <code>opmode</code>.
+     * on the value of {@code opmode}.
      *
      * <p>If this cipher requires any algorithm parameters and
-     * <code>params</code> is null, the underlying cipher implementation is
+     * {@code params} is null, the underlying cipher implementation is
      * supposed to generate the required parameters itself (using
      * provider-specific default or random values) if it is being
      * initialized for encryption or key wrapping, and raise an
-     * <code>InvalidAlgorithmParameterException</code> if it is being
+     * {@code InvalidAlgorithmParameterException} if it is being
      * initialized for decryption or key unwrapping.
      * The generated parameters can be retrieved using
      * {@link #getParameters() getParameters} or
@@ -1444,9 +1447,9 @@ public class Cipher {
      * it.
      *
      * @param opmode the operation mode of this cipher (this is one of the
-     * following: <code>ENCRYPT_MODE</code>,
-     * <code>DECRYPT_MODE</code>, <code>WRAP_MODE</code>
-     * or <code>UNWRAP_MODE</code>)
+     * following: {@code ENCRYPT_MODE},
+     * {@code DECRYPT_MODE}, {@code WRAP_MODE}
+     * or {@code UNWRAP_MODE})
      * @param key the encryption key
      * @param params the algorithm parameters
      *
@@ -1456,7 +1459,7 @@ public class Cipher {
      * @exception InvalidAlgorithmParameterException if the given algorithm
      * parameters are inappropriate for this cipher,
      * or this cipher requires
-     * algorithm parameters and <code>params</code> is null, or the given
+     * algorithm parameters and {@code params} is null, or the given
      * algorithm parameters imply a cryptographic strength that would exceed
      * the legal limits (as determined from the configured jurisdiction
      * policy files).
@@ -1476,14 +1479,14 @@ public class Cipher {
      *
      * <p>The cipher is initialized for one of the following four operations:
      * encryption, decryption, key wrapping or  key unwrapping, depending
-     * on the value of <code>opmode</code>.
+     * on the value of {@code opmode}.
      *
      * <p>If this cipher requires any algorithm parameters and
-     * <code>params</code> is null, the underlying cipher implementation is
+     * {@code params} is null, the underlying cipher implementation is
      * supposed to generate the required parameters itself (using
      * provider-specific default or random values) if it is being
      * initialized for encryption or key wrapping, and raise an
-     * <code>InvalidAlgorithmParameterException</code> if it is being
+     * {@code InvalidAlgorithmParameterException} if it is being
      * initialized for decryption or key unwrapping.
      * The generated parameters can be retrieved using
      * {@link #getParameters() getParameters} or
@@ -1496,7 +1499,7 @@ public class Cipher {
      *
      * <p>If this cipher (including its underlying feedback or padding scheme)
      * requires any random bytes (e.g., for parameter generation), it will get
-     * them from <code>random</code>.
+     * them from {@code random}.
      *
      * <p>Note that when a Cipher object is initialized, it loses all
      * previously-acquired state. In other words, initializing a Cipher is
@@ -1504,9 +1507,9 @@ public class Cipher {
      * it.
      *
      * @param opmode the operation mode of this cipher (this is one of the
-     * following: <code>ENCRYPT_MODE</code>,
-     * <code>DECRYPT_MODE</code>, <code>WRAP_MODE</code>
-     * or <code>UNWRAP_MODE</code>)
+     * following: {@code ENCRYPT_MODE},
+     * {@code DECRYPT_MODE}, {@code WRAP_MODE}
+     * or {@code UNWRAP_MODE})
      * @param key the encryption key
      * @param params the algorithm parameters
      * @param random the source of randomness
@@ -1517,7 +1520,7 @@ public class Cipher {
      * @exception InvalidAlgorithmParameterException if the given algorithm
      * parameters are inappropriate for this cipher,
      * or this cipher requires
-     * algorithm parameters and <code>params</code> is null, or the given
+     * algorithm parameters and {@code params} is null, or the given
      * algorithm parameters imply a cryptographic strength that would exceed
      * the legal limits (as determined from the configured jurisdiction
      * policy files).
@@ -1553,15 +1556,15 @@ public class Cipher {
      * Initializes this cipher with the public key from the given certificate.
      * <p> The cipher is initialized for one of the following four operations:
      * encryption, decryption, key wrapping or  key unwrapping, depending
-     * on the value of <code>opmode</code>.
+     * on the value of {@code opmode}.
      *
      * <p>If the certificate is of type X.509 and has a <i>key usage</i>
      * extension field marked as critical, and the value of the <i>key usage</i>
      * extension field implies that the public key in
      * the certificate and its corresponding private key are not
      * supposed to be used for the operation represented by the value
-     * of <code>opmode</code>,
-     * an <code>InvalidKeyException</code>
+     * of {@code opmode},
+     * an {@code InvalidKeyException}
      * is thrown.
      *
      * <p> If this cipher requires any algorithm parameters that cannot be
@@ -1569,8 +1572,8 @@ public class Cipher {
      * cipher
      * implementation is supposed to generate the required parameters itself
      * (using provider-specific default or random values) if it is being
-     * initialized for encryption or key wrapping, and raise an <code>
-     * InvalidKeyException</code> if it is being initialized for decryption or
+     * initialized for encryption or key wrapping, and raise an {@code
+     * InvalidKeyException} if it is being initialized for decryption or
      * key unwrapping.
      * The generated parameters can be retrieved using
      * {@link #getParameters() getParameters} or
@@ -1584,7 +1587,7 @@ public class Cipher {
      * <p>If this cipher (including its underlying feedback or padding scheme)
      * requires any random bytes (e.g., for parameter generation), it will get
      * them using the
-     * <code>SecureRandom</code>
+     * {@code SecureRandom}
      * implementation of the highest-priority
      * installed provider as the source of randomness.
      * (If none of the installed providers supply an implementation of
@@ -1597,8 +1600,8 @@ public class Cipher {
      *
      * @param opmode the operation mode of this cipher (this is one of the
      * following:
-     * <code>ENCRYPT_MODE</code>, <code>DECRYPT_MODE</code>,
-     * <code>WRAP_MODE</code> or <code>UNWRAP_MODE</code>)
+     * {@code ENCRYPT_MODE}, {@code DECRYPT_MODE},
+     * {@code WRAP_MODE} or {@code UNWRAP_MODE})
      * @param certificate the certificate
      *
      * @exception InvalidKeyException if the public key in the given
@@ -1626,24 +1629,24 @@ public class Cipher {
      * <p>The cipher is initialized for one of the following four operations:
      * encryption, decryption, key wrapping
      * or key unwrapping, depending on
-     * the value of <code>opmode</code>.
+     * the value of {@code opmode}.
      *
      * <p>If the certificate is of type X.509 and has a <i>key usage</i>
      * extension field marked as critical, and the value of the <i>key usage</i>
      * extension field implies that the public key in
      * the certificate and its corresponding private key are not
      * supposed to be used for the operation represented by the value of
-     * <code>opmode</code>,
-     * an <code>InvalidKeyException</code>
+     * {@code opmode},
+     * an {@code InvalidKeyException}
      * is thrown.
      *
      * <p>If this cipher requires any algorithm parameters that cannot be
-     * derived from the public key in the given <code>certificate</code>,
+     * derived from the public key in the given {@code certificate},
      * the underlying cipher
      * implementation is supposed to generate the required parameters itself
      * (using provider-specific default or random values) if it is being
      * initialized for encryption or key wrapping, and raise an
-     * <code>InvalidKeyException</code> if it is being
+     * {@code InvalidKeyException} if it is being
      * initialized for decryption or key unwrapping.
      * The generated parameters can be retrieved using
      * {@link #getParameters() getParameters} or
@@ -1656,7 +1659,7 @@ public class Cipher {
      *
      * <p>If this cipher (including its underlying feedback or padding scheme)
      * requires any random bytes (e.g., for parameter generation), it will get
-     * them from <code>random</code>.
+     * them from {@code random}.
      *
      * <p>Note that when a Cipher object is initialized, it loses all
      * previously-acquired state. In other words, initializing a Cipher is
@@ -1665,8 +1668,8 @@ public class Cipher {
      *
      * @param opmode the operation mode of this cipher (this is one of the
      * following:
-     * <code>ENCRYPT_MODE</code>, <code>DECRYPT_MODE</code>,
-     * <code>WRAP_MODE</code> or <code>UNWRAP_MODE</code>)
+     * {@code ENCRYPT_MODE}, {@code DECRYPT_MODE},
+     * {@code WRAP_MODE} or {@code UNWRAP_MODE})
      * @param certificate the certificate
      * @param random the source of randomness
      *
@@ -1762,11 +1765,11 @@ public class Cipher {
      * (depending on how this cipher was initialized), processing another data
      * part.
      *
-     * <p>The bytes in the <code>input</code> buffer are processed, and the
+     * <p>The bytes in the {@code input} buffer are processed, and the
      * result is stored in a new buffer.
      *
-     * <p>If <code>input</code> has a length of zero, this method returns
-     * <code>null</code>.
+     * <p>If {@code input} has a length of zero, this method returns
+     * {@code null}.
      *
      * @param input the input buffer
      *
@@ -1797,15 +1800,15 @@ public class Cipher {
      * (depending on how this cipher was initialized), processing another data
      * part.
      *
-     * <p>The first <code>inputLen</code> bytes in the <code>input</code>
-     * buffer, starting at <code>inputOffset</code> inclusive, are processed,
+     * <p>The first {@code inputLen} bytes in the {@code input}
+     * buffer, starting at {@code inputOffset} inclusive, are processed,
      * and the result is stored in a new buffer.
      *
-     * <p>If <code>inputLen</code> is zero, this method returns
-     * <code>null</code>.
+     * <p>If {@code inputLen} is zero, this method returns
+     * {@code null}.
      *
      * @param input the input buffer
-     * @param inputOffset the offset in <code>input</code> where the input
+     * @param inputOffset the offset in {@code input} where the input
      * starts
      * @param inputLen the input length
      *
@@ -1837,31 +1840,31 @@ public class Cipher {
      * (depending on how this cipher was initialized), processing another data
      * part.
      *
-     * <p>The first <code>inputLen</code> bytes in the <code>input</code>
-     * buffer, starting at <code>inputOffset</code> inclusive, are processed,
-     * and the result is stored in the <code>output</code> buffer.
+     * <p>The first {@code inputLen} bytes in the {@code input}
+     * buffer, starting at {@code inputOffset} inclusive, are processed,
+     * and the result is stored in the {@code output} buffer.
      *
-     * <p>If the <code>output</code> buffer is too small to hold the result,
-     * a <code>ShortBufferException</code> is thrown. In this case, repeat this
+     * <p>If the {@code output} buffer is too small to hold the result,
+     * a {@code ShortBufferException} is thrown. In this case, repeat this
      * call with a larger output buffer. Use
      * {@link #getOutputSize(int) getOutputSize} to determine how big
      * the output buffer should be.
      *
-     * <p>If <code>inputLen</code> is zero, this method returns
+     * <p>If {@code inputLen} is zero, this method returns
      * a length of zero.
      *
      * <p>Note: this method should be copy-safe, which means the
-     * <code>input</code> and <code>output</code> buffers can reference
+     * {@code input} and {@code output} buffers can reference
      * the same byte array and no unprocessed input data is overwritten
      * when the result is copied into the output buffer.
      *
      * @param input the input buffer
-     * @param inputOffset the offset in <code>input</code> where the input
+     * @param inputOffset the offset in {@code input} where the input
      * starts
      * @param inputLen the input length
      * @param output the buffer for the result
      *
-     * @return the number of bytes stored in <code>output</code>
+     * @return the number of bytes stored in {@code output}
      *
      * @exception IllegalStateException if this cipher is in a wrong state
      * (e.g., has not been initialized)
@@ -1892,34 +1895,34 @@ public class Cipher {
      * (depending on how this cipher was initialized), processing another data
      * part.
      *
-     * <p>The first <code>inputLen</code> bytes in the <code>input</code>
-     * buffer, starting at <code>inputOffset</code> inclusive, are processed,
-     * and the result is stored in the <code>output</code> buffer, starting at
-     * <code>outputOffset</code> inclusive.
+     * <p>The first {@code inputLen} bytes in the {@code input}
+     * buffer, starting at {@code inputOffset} inclusive, are processed,
+     * and the result is stored in the {@code output} buffer, starting at
+     * {@code outputOffset} inclusive.
      *
-     * <p>If the <code>output</code> buffer is too small to hold the result,
-     * a <code>ShortBufferException</code> is thrown. In this case, repeat this
+     * <p>If the {@code output} buffer is too small to hold the result,
+     * a {@code ShortBufferException} is thrown. In this case, repeat this
      * call with a larger output buffer. Use
      * {@link #getOutputSize(int) getOutputSize} to determine how big
      * the output buffer should be.
      *
-     * <p>If <code>inputLen</code> is zero, this method returns
+     * <p>If {@code inputLen} is zero, this method returns
      * a length of zero.
      *
      * <p>Note: this method should be copy-safe, which means the
-     * <code>input</code> and <code>output</code> buffers can reference
+     * {@code input} and {@code output} buffers can reference
      * the same byte array and no unprocessed input data is overwritten
      * when the result is copied into the output buffer.
      *
      * @param input the input buffer
-     * @param inputOffset the offset in <code>input</code> where the input
+     * @param inputOffset the offset in {@code input} where the input
      * starts
      * @param inputLen the input length
      * @param output the buffer for the result
-     * @param outputOffset the offset in <code>output</code> where the result
+     * @param outputOffset the offset in {@code output} where the result
      * is stored
      *
-     * @return the number of bytes stored in <code>output</code>
+     * @return the number of bytes stored in {@code output}
      *
      * @exception IllegalStateException if this cipher is in a wrong state
      * (e.g., has not been initialized)
@@ -1951,29 +1954,29 @@ public class Cipher {
      * (depending on how this cipher was initialized), processing another data
      * part.
      *
-     * <p>All <code>input.remaining()</code> bytes starting at
-     * <code>input.position()</code> are processed. The result is stored
+     * <p>All {@code input.remaining()} bytes starting at
+     * {@code input.position()} are processed. The result is stored
      * in the output buffer.
      * Upon return, the input buffer's position will be equal
      * to its limit; its limit will not have changed. The output buffer's
      * position will have advanced by n, where n is the value returned
      * by this method; the output buffer's limit will not have changed.
      *
-     * <p>If <code>output.remaining()</code> bytes are insufficient to
-     * hold the result, a <code>ShortBufferException</code> is thrown.
+     * <p>If {@code output.remaining()} bytes are insufficient to
+     * hold the result, a {@code ShortBufferException} is thrown.
      * In this case, repeat this call with a larger output buffer. Use
      * {@link #getOutputSize(int) getOutputSize} to determine how big
      * the output buffer should be.
      *
      * <p>Note: this method should be copy-safe, which means the
-     * <code>input</code> and <code>output</code> buffers can reference
+     * {@code input} and {@code output} buffers can reference
      * the same block of memory and no unprocessed input data is overwritten
      * when the result is copied into the output buffer.
      *
      * @param input the input ByteBuffer
      * @param output the output ByteByffer
      *
-     * @return the number of bytes stored in <code>output</code>
+     * @return the number of bytes stored in {@code output}
      *
      * @exception IllegalStateException if this cipher is in a wrong state
      * (e.g., has not been initialized)
@@ -2008,7 +2011,7 @@ public class Cipher {
      * on how this cipher was initialized.
      *
      * <p>Input data that may have been buffered during a previous
-     * <code>update</code> operation is processed, with padding (if requested)
+     * {@code update} operation is processed, with padding (if requested)
      * being applied.
      * If an AEAD mode such as GCM/CCM is being used, the authentication
      * tag is appended in the case of encryption, or verified in the
@@ -2016,10 +2019,10 @@ public class Cipher {
      * The result is stored in a new buffer.
      *
      * <p>Upon finishing, this method resets this cipher object to the state
-     * it was in when previously initialized via a call to <code>init</code>.
+     * it was in when previously initialized via a call to {@code init}.
      * That is, the object is reset and available to encrypt or decrypt
      * (depending on the operation mode that was specified in the call to
-     * <code>init</code>) more data.
+     * {@code init}) more data.
      *
      * <p>Note: if any exception is thrown, this cipher object may need to
      * be reset before it can be used again.
@@ -2053,34 +2056,34 @@ public class Cipher {
      * on how this cipher was initialized.
      *
      * <p>Input data that may have been buffered during a previous
-     * <code>update</code> operation is processed, with padding (if requested)
+     * {@code update} operation is processed, with padding (if requested)
      * being applied.
      * If an AEAD mode such as GCM/CCM is being used, the authentication
      * tag is appended in the case of encryption, or verified in the
      * case of decryption.
-     * The result is stored in the <code>output</code> buffer, starting at
-     * <code>outputOffset</code> inclusive.
+     * The result is stored in the {@code output} buffer, starting at
+     * {@code outputOffset} inclusive.
      *
-     * <p>If the <code>output</code> buffer is too small to hold the result,
-     * a <code>ShortBufferException</code> is thrown. In this case, repeat this
+     * <p>If the {@code output} buffer is too small to hold the result,
+     * a {@code ShortBufferException} is thrown. In this case, repeat this
      * call with a larger output buffer. Use
      * {@link #getOutputSize(int) getOutputSize} to determine how big
      * the output buffer should be.
      *
      * <p>Upon finishing, this method resets this cipher object to the state
-     * it was in when previously initialized via a call to <code>init</code>.
+     * it was in when previously initialized via a call to {@code init}.
      * That is, the object is reset and available to encrypt or decrypt
      * (depending on the operation mode that was specified in the call to
-     * <code>init</code>) more data.
+     * {@code init}) more data.
      *
      * <p>Note: if any exception is thrown, this cipher object may need to
      * be reset before it can be used again.
      *
      * @param output the buffer for the result
-     * @param outputOffset the offset in <code>output</code> where the result
+     * @param outputOffset the offset in {@code output} where the result
      * is stored
      *
-     * @return the number of bytes stored in <code>output</code>
+     * @return the number of bytes stored in {@code output}
      *
      * @exception IllegalStateException if this cipher is in a wrong state
      * (e.g., has not been initialized)
@@ -2117,8 +2120,8 @@ public class Cipher {
      * multiple-part operation. The data is encrypted or decrypted,
      * depending on how this cipher was initialized.
      *
-     * <p>The bytes in the <code>input</code> buffer, and any input bytes that
-     * may have been buffered during a previous <code>update</code> operation,
+     * <p>The bytes in the {@code input} buffer, and any input bytes that
+     * may have been buffered during a previous {@code update} operation,
      * are processed, with padding (if requested) being applied.
      * If an AEAD mode such as GCM/CCM is being used, the authentication
      * tag is appended in the case of encryption, or verified in the
@@ -2126,10 +2129,10 @@ public class Cipher {
      * The result is stored in a new buffer.
      *
      * <p>Upon finishing, this method resets this cipher object to the state
-     * it was in when previously initialized via a call to <code>init</code>.
+     * it was in when previously initialized via a call to {@code init}.
      * That is, the object is reset and available to encrypt or decrypt
      * (depending on the operation mode that was specified in the call to
-     * <code>init</code>) more data.
+     * {@code init}) more data.
      *
      * <p>Note: if any exception is thrown, this cipher object may need to
      * be reset before it can be used again.
@@ -2170,9 +2173,9 @@ public class Cipher {
      * multiple-part operation. The data is encrypted or decrypted,
      * depending on how this cipher was initialized.
      *
-     * <p>The first <code>inputLen</code> bytes in the <code>input</code>
-     * buffer, starting at <code>inputOffset</code> inclusive, and any input
-     * bytes that may have been buffered during a previous <code>update</code>
+     * <p>The first {@code inputLen} bytes in the {@code input}
+     * buffer, starting at {@code inputOffset} inclusive, and any input
+     * bytes that may have been buffered during a previous {@code update}
      * operation, are processed, with padding (if requested) being applied.
      * If an AEAD mode such as GCM/CCM is being used, the authentication
      * tag is appended in the case of encryption, or verified in the
@@ -2180,16 +2183,16 @@ public class Cipher {
      * The result is stored in a new buffer.
      *
      * <p>Upon finishing, this method resets this cipher object to the state
-     * it was in when previously initialized via a call to <code>init</code>.
+     * it was in when previously initialized via a call to {@code init}.
      * That is, the object is reset and available to encrypt or decrypt
      * (depending on the operation mode that was specified in the call to
-     * <code>init</code>) more data.
+     * {@code init}) more data.
      *
      * <p>Note: if any exception is thrown, this cipher object may need to
      * be reset before it can be used again.
      *
      * @param input the input buffer
-     * @param inputOffset the offset in <code>input</code> where the input
+     * @param inputOffset the offset in {@code input} where the input
      * starts
      * @param inputLen the input length
      *
@@ -2228,42 +2231,42 @@ public class Cipher {
      * multiple-part operation. The data is encrypted or decrypted,
      * depending on how this cipher was initialized.
      *
-     * <p>The first <code>inputLen</code> bytes in the <code>input</code>
-     * buffer, starting at <code>inputOffset</code> inclusive, and any input
-     * bytes that may have been buffered during a previous <code>update</code>
+     * <p>The first {@code inputLen} bytes in the {@code input}
+     * buffer, starting at {@code inputOffset} inclusive, and any input
+     * bytes that may have been buffered during a previous {@code update}
      * operation, are processed, with padding (if requested) being applied.
      * If an AEAD mode such as GCM/CCM is being used, the authentication
      * tag is appended in the case of encryption, or verified in the
      * case of decryption.
-     * The result is stored in the <code>output</code> buffer.
+     * The result is stored in the {@code output} buffer.
      *
-     * <p>If the <code>output</code> buffer is too small to hold the result,
-     * a <code>ShortBufferException</code> is thrown. In this case, repeat this
+     * <p>If the {@code output} buffer is too small to hold the result,
+     * a {@code ShortBufferException} is thrown. In this case, repeat this
      * call with a larger output buffer. Use
      * {@link #getOutputSize(int) getOutputSize} to determine how big
      * the output buffer should be.
      *
      * <p>Upon finishing, this method resets this cipher object to the state
-     * it was in when previously initialized via a call to <code>init</code>.
+     * it was in when previously initialized via a call to {@code init}.
      * That is, the object is reset and available to encrypt or decrypt
      * (depending on the operation mode that was specified in the call to
-     * <code>init</code>) more data.
+     * {@code init}) more data.
      *
      * <p>Note: if any exception is thrown, this cipher object may need to
      * be reset before it can be used again.
      *
      * <p>Note: this method should be copy-safe, which means the
-     * <code>input</code> and <code>output</code> buffers can reference
+     * {@code input} and {@code output} buffers can reference
      * the same byte array and no unprocessed input data is overwritten
      * when the result is copied into the output buffer.
      *
      * @param input the input buffer
-     * @param inputOffset the offset in <code>input</code> where the input
+     * @param inputOffset the offset in {@code input} where the input
      * starts
      * @param inputLen the input length
      * @param output the buffer for the result
      *
-     * @return the number of bytes stored in <code>output</code>
+     * @return the number of bytes stored in {@code output}
      *
      * @exception IllegalStateException if this cipher is in a wrong state
      * (e.g., has not been initialized)
@@ -2303,46 +2306,46 @@ public class Cipher {
      * multiple-part operation. The data is encrypted or decrypted,
      * depending on how this cipher was initialized.
      *
-     * <p>The first <code>inputLen</code> bytes in the <code>input</code>
-     * buffer, starting at <code>inputOffset</code> inclusive, and any input
+     * <p>The first {@code inputLen} bytes in the {@code input}
+     * buffer, starting at {@code inputOffset} inclusive, and any input
      * bytes that may have been buffered during a previous
-     * <code>update</code> operation, are processed, with padding
+     * {@code update} operation, are processed, with padding
      * (if requested) being applied.
      * If an AEAD mode such as GCM/CCM is being used, the authentication
      * tag is appended in the case of encryption, or verified in the
      * case of decryption.
-     * The result is stored in the <code>output</code> buffer, starting at
-     * <code>outputOffset</code> inclusive.
+     * The result is stored in the {@code output} buffer, starting at
+     * {@code outputOffset} inclusive.
      *
-     * <p>If the <code>output</code> buffer is too small to hold the result,
-     * a <code>ShortBufferException</code> is thrown. In this case, repeat this
+     * <p>If the {@code output} buffer is too small to hold the result,
+     * a {@code ShortBufferException} is thrown. In this case, repeat this
      * call with a larger output buffer. Use
      * {@link #getOutputSize(int) getOutputSize} to determine how big
      * the output buffer should be.
      *
      * <p>Upon finishing, this method resets this cipher object to the state
-     * it was in when previously initialized via a call to <code>init</code>.
+     * it was in when previously initialized via a call to {@code init}.
      * That is, the object is reset and available to encrypt or decrypt
      * (depending on the operation mode that was specified in the call to
-     * <code>init</code>) more data.
+     * {@code init}) more data.
      *
      * <p>Note: if any exception is thrown, this cipher object may need to
      * be reset before it can be used again.
      *
      * <p>Note: this method should be copy-safe, which means the
-     * <code>input</code> and <code>output</code> buffers can reference
+     * {@code input} and {@code output} buffers can reference
      * the same byte array and no unprocessed input data is overwritten
      * when the result is copied into the output buffer.
      *
      * @param input the input buffer
-     * @param inputOffset the offset in <code>input</code> where the input
+     * @param inputOffset the offset in {@code input} where the input
      * starts
      * @param inputLen the input length
      * @param output the buffer for the result
-     * @param outputOffset the offset in <code>output</code> where the result
+     * @param outputOffset the offset in {@code output} where the result
      * is stored
      *
-     * @return the number of bytes stored in <code>output</code>
+     * @return the number of bytes stored in {@code output}
      *
      * @exception IllegalStateException if this cipher is in a wrong state
      * (e.g., has not been initialized)
@@ -2383,8 +2386,8 @@ public class Cipher {
      * multiple-part operation. The data is encrypted or decrypted,
      * depending on how this cipher was initialized.
      *
-     * <p>All <code>input.remaining()</code> bytes starting at
-     * <code>input.position()</code> are processed.
+     * <p>All {@code input.remaining()} bytes starting at
+     * {@code input.position()} are processed.
      * If an AEAD mode such as GCM/CCM is being used, the authentication
      * tag is appended in the case of encryption, or verified in the
      * case of decryption.
@@ -2394,30 +2397,30 @@ public class Cipher {
      * position will have advanced by n, where n is the value returned
      * by this method; the output buffer's limit will not have changed.
      *
-     * <p>If <code>output.remaining()</code> bytes are insufficient to
-     * hold the result, a <code>ShortBufferException</code> is thrown.
+     * <p>If {@code output.remaining()} bytes are insufficient to
+     * hold the result, a {@code ShortBufferException} is thrown.
      * In this case, repeat this call with a larger output buffer. Use
      * {@link #getOutputSize(int) getOutputSize} to determine how big
      * the output buffer should be.
      *
      * <p>Upon finishing, this method resets this cipher object to the state
-     * it was in when previously initialized via a call to <code>init</code>.
+     * it was in when previously initialized via a call to {@code init}.
      * That is, the object is reset and available to encrypt or decrypt
      * (depending on the operation mode that was specified in the call to
-     * <code>init</code>) more data.
+     * {@code init}) more data.
      *
      * <p>Note: if any exception is thrown, this cipher object may need to
      * be reset before it can be used again.
      *
      * <p>Note: this method should be copy-safe, which means the
-     * <code>input</code> and <code>output</code> buffers can reference
+     * {@code input} and {@code output} buffers can reference
      * the same byte array and no unprocessed input data is overwritten
      * when the result is copied into the output buffer.
      *
      * @param input the input ByteBuffer
      * @param output the output ByteBuffer
      *
-     * @return the number of bytes stored in <code>output</code>
+     * @return the number of bytes stored in {@code output}
      *
      * @exception IllegalStateException if this cipher is in a wrong state
      * (e.g., has not been initialized)
@@ -2507,8 +2510,8 @@ public class Cipher {
      * key.
      *
      * @param wrappedKeyType the type of the wrapped key. This must be one of
-     * <code>SECRET_KEY</code>, <code>PRIVATE_KEY</code>, or
-     * <code>PUBLIC_KEY</code>.
+     * {@code SECRET_KEY}, {@code PRIVATE_KEY}, or
+     * {@code PUBLIC_KEY}.
      *
      * @return the unwrapped key.
      *
@@ -2516,12 +2519,12 @@ public class Cipher {
      * (e.g., has not been initialized).
      *
      * @exception NoSuchAlgorithmException if no installed providers
-     * can create keys of type <code>wrappedKeyType</code> for the
-     * <code>wrappedKeyAlgorithm</code>.
+     * can create keys of type {@code wrappedKeyType} for the
+     * {@code wrappedKeyAlgorithm}.
      *
-     * @exception InvalidKeyException if <code>wrappedKey</code> does not
-     * represent a wrapped key of type <code>wrappedKeyType</code> for
-     * the <code>wrappedKeyAlgorithm</code>.
+     * @exception InvalidKeyException if {@code wrappedKey} does not
+     * represent a wrapped key of type {@code wrappedKeyType} for
+     * the {@code wrappedKeyAlgorithm}.
      *
      * @throws UnsupportedOperationException if the corresponding method in the
      * {@code CipherSpi} is not supported.
@@ -2600,8 +2603,8 @@ public class Cipher {
      *
      * @param transformation the cipher transformation.
      * @return the maximum key length in bits or Integer.MAX_VALUE.
-     * @exception NullPointerException if <code>transformation</code> is null.
-     * @exception NoSuchAlgorithmException if <code>transformation</code>
+     * @exception NullPointerException if {@code transformation} is null.
+     * @exception NoSuchAlgorithmException if {@code transformation}
      * is not a valid transformation, i.e. in the form of "algorithm" or
      * "algorithm/mode/padding".
      * @since 1.5
@@ -2623,9 +2626,9 @@ public class Cipher {
      * @param transformation the cipher transformation.
      * @return an AlgorithmParameterSpec which holds the maximum
      * value or null.
-     * @exception NullPointerException if <code>transformation</code>
+     * @exception NullPointerException if {@code transformation}
      * is null.
-     * @exception NoSuchAlgorithmException if <code>transformation</code>
+     * @exception NoSuchAlgorithmException if {@code transformation}
      * is not a valid transformation, i.e. in the form of "algorithm" or
      * "algorithm/mode/padding".
      * @since 1.5
@@ -2704,7 +2707,7 @@ public class Cipher {
 
         // Input sanity check
         if ((src == null) || (offset < 0) || (len < 0)
-                || ((len + offset) > src.length)) {
+                || (len > (src.length - offset))) {
             throw new IllegalArgumentException("Bad arguments");
         }
 

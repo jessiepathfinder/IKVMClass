@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -262,11 +262,17 @@ public class Level implements java.io.Serializable {
     }
 
     private String computeLocalizedLevelName(Locale newLocale) {
-        ResourceBundle rb = ResourceBundle.getBundle(resourceBundleName, newLocale);
-        final String localizedName = rb.getString(name);
+        // If this is a custom Level, load resource bundles on the
+        // classpath and return.
+        if (!defaultBundle.equals(resourceBundleName)) {
+            return ResourceBundle.getBundle(resourceBundleName, newLocale,
+                       ClassLoader.getSystemClassLoader()).getString(name);
+        }
 
-        final boolean isDefaultBundle = defaultBundle.equals(resourceBundleName);
-        if (!isDefaultBundle) return localizedName;
+        // The default bundle "sun.util.logging.resources.logging" should only
+        // be loaded from the runtime; so use the extension class loader;
+        final ResourceBundle rb = ResourceBundle.getBundle(defaultBundle, newLocale);
+        final String localizedName = rb.getString(name);
 
         // This is a trick to determine whether the name has been translated
         // or not. If it has not been translated, we need to use Locale.ROOT
@@ -599,11 +605,14 @@ public class Level implements java.io.Serializable {
             if (list != null) {
                 for (KnownLevel level : list) {
                     Level other = level.mirroredLevel;
+                    Class<? extends Level> type = level.levelObject.getClass();
                     if (l.value == other.value &&
                            (l.resourceBundleName == other.resourceBundleName ||
                                (l.resourceBundleName != null &&
                                 l.resourceBundleName.equals(other.resourceBundleName)))) {
-                        return level;
+                        if (type == l.getClass()) {
+                            return level;
+                        }
                     }
                 }
             }

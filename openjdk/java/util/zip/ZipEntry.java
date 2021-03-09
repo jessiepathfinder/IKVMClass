@@ -54,6 +54,7 @@ class ZipEntry implements ZipConstants, Cloneable {
     String comment;     // optional comment string for entry
     long offset;        // [IKVM] used by ZipFile
     volatile long dostime = -1;  // [IKVM] undecoded DOS time (to avoid bootstrap issue, because java.util.Date needs to read from VFS zip file)
+	volatile long xdostime = -1;
 
     /**
      * Compression method for uncompressed entries.
@@ -65,6 +66,11 @@ class ZipEntry implements ZipConstants, Cloneable {
      */
     public static final int DEFLATED = 8;
 
+	/**
+     * DOS time constant for representing timestamps before 1980.
+     */
+    static final long DOSTIME_BEFORE_1980 = (1 << 21) | (1 << 16);
+	
     /**
      * Creates a new zip entry with the specified name.
      *
@@ -107,6 +113,7 @@ class ZipEntry implements ZipConstants, Cloneable {
         extra = e.extra;
         comment = e.comment;
         dostime = e.dostime;
+		xdostime = e.xdostime;
     }
 
     /**

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1996, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -31,11 +31,7 @@ import java.io.IOException;
 import java.math.BigInteger;
 
 import java.security.cert.CertificateException;
-import java.security.NoSuchAlgorithmException;
-import java.security.InvalidKeyException;
-import java.security.Signature;
-import java.security.SignatureException;
-import java.security.PublicKey;
+import java.security.*;
 
 import java.util.Base64;
 
@@ -43,6 +39,8 @@ import sun.security.util.*;
 import sun.security.x509.AlgorithmId;
 import sun.security.x509.X509Key;
 import sun.security.x509.X500Name;
+import sun.security.util.SignatureUtil;
+
 
 /**
  * A PKCS #10 certificate request is created and sent to a Certificate
@@ -167,13 +165,22 @@ public class PKCS10 {
         // key and signature algorithm we found.
         //
         try {
-            sig = Signature.getInstance(id.getName());
-            sig.initVerify(subjectPublicKeyInfo);
+            sigAlg = id.getName();
+            sig = Signature.getInstance(sigAlg);
+            SignatureUtil.initVerifyWithParam(sig, subjectPublicKeyInfo,
+                SignatureUtil.getParamSpec(sigAlg, id.getParameters()));
+
             sig.update(data);
-            if (!sig.verify(sigData))
+            if (!sig.verify(sigData)) {
                 throw new SignatureException("Invalid PKCS #10 signature");
+            }
         } catch (InvalidKeyException e) {
-            throw new SignatureException("invalid key");
+            throw new SignatureException("Invalid key");
+        } catch (InvalidAlgorithmParameterException e) {
+            throw new SignatureException("Invalid signature parameters", e);
+        } catch (ProviderException e) {
+            throw new SignatureException("Error parsing signature parameters",
+                e.getCause());
         }
     }
 
@@ -218,16 +225,21 @@ public class PKCS10 {
         signature.update(certificateRequestInfo, 0,
                 certificateRequestInfo.length);
         sig = signature.sign();
+        sigAlg = signature.getAlgorithm();
 
         /*
          * Build guts of SIGNED macro
          */
         AlgorithmId algId = null;
         try {
-            algId = AlgorithmId.get(signature.getAlgorithm());
+            AlgorithmParameters params = signature.getParameters();
+            algId = params == null
+                    ? AlgorithmId.get(signature.getAlgorithm())
+                    : AlgorithmId.get(params);
         } catch (NoSuchAlgorithmException nsae) {
             throw new SignatureException(nsae);
         }
+
         algId.encode(scratch);     // sig algorithm
         scratch.putBitString(sig);                      // sig
 
@@ -249,6 +261,11 @@ public class PKCS10 {
      */
     public PublicKey getSubjectPublicKeyInfo()
         { return subjectPublicKeyInfo; }
+
+    /**
+     * Returns the signature algorithm.
+     */
+    public String getSigAlg() { return sigAlg; }
 
     /**
      * Returns the additional attributes requested.
@@ -290,8 +307,9 @@ public class PKCS10 {
             throw new SignatureException("Cert request was not signed");
 
 
+        byte[] CRLF = new byte[] {'\r', '\n'};
         out.println("-----BEGIN NEW CERTIFICATE REQUEST-----");
-        out.println(Base64.getMimeEncoder().encodeToString(encoded));
+        out.println(Base64.getMimeEncoder(64, CRLF).encodeToString(encoded));
         out.println("-----END NEW CERTIFICATE REQUEST-----");
     }
 
@@ -347,6 +365,7 @@ public class PKCS10 {
 
     private X500Name            subject;
     private PublicKey           subjectPublicKeyInfo;
+    private String              sigAlg;
     private PKCS10Attributes    attributeSet;
     private byte[]              encoded;        // signed
 }

@@ -48,6 +48,7 @@ import java.util.Queue;
 import java.util.SortedSet;
 import java.util.Spliterator;
 import java.util.function.Consumer;
+import sun.misc.SharedSecrets;
 
 /**
  * An unbounded {@linkplain BlockingQueue blocking queue} that uses
@@ -262,8 +263,7 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
         }
         Object[] a = c.toArray();
         int n = a.length;
-        // If c.toArray incorrectly doesn't return Object[], copy it.
-        if (a.getClass() != Object[].class)
+        if (c.getClass() != java.util.ArrayList.class)
             a = Arrays.copyOf(a, n, Object[].class);
         if (screen && (n == 1 || this.comparator != null)) {
             for (int i = 0; i < n; ++i)
@@ -940,7 +940,9 @@ public class PriorityBlockingQueue<E> extends AbstractQueue<E>
         throws java.io.IOException, ClassNotFoundException {
         try {
             s.defaultReadObject();
-            this.queue = new Object[q.size()];
+            int sz = q.size();
+            SharedSecrets.getJavaOISAccess().checkArray(s, Object[].class, sz);
+            this.queue = new Object[sz];
             comparator = q.comparator();
             addAll(q);
         } finally {

@@ -97,7 +97,8 @@ class MethodType implements java.io.Serializable {
 
     // The remaining fields are caches of various sorts:
     private @Stable MethodTypeForm form; // erased form, plus cached data about primitives
-    private @Stable MethodType wrapAlt;  // alternative wrapped/unwrapped version
+    private @Stable Object wrapAlt;  // alternative wrapped/unwrapped version and
+                                     // private communication for readObject and readResolve
     private @Stable Invokers invokers;   // cache of handy higher-order adapters
     private @Stable String methodDescriptor;  // cache for toMethodDescriptorString
 
@@ -673,7 +674,7 @@ class MethodType implements java.io.Serializable {
 
     private static MethodType wrapWithPrims(MethodType pt) {
         assert(pt.hasPrimitives());
-        MethodType wt = pt.wrapAlt;
+        MethodType wt = (MethodType)pt.wrapAlt;
         if (wt == null) {
             // fill in lazily
             wt = MethodTypeForm.canonicalize(pt, MethodTypeForm.WRAP, MethodTypeForm.WRAP);
@@ -685,7 +686,7 @@ class MethodType implements java.io.Serializable {
 
     private static MethodType unwrapWithNoPrims(MethodType wt) {
         assert(!wt.hasPrimitives());
-        MethodType uwt = wt.wrapAlt;
+        MethodType uwt = (MethodType)wt.wrapAlt;
         if (uwt == null) {
             // fill in lazily
             uwt = MethodTypeForm.canonicalize(wt, MethodTypeForm.UNWRAP, MethodTypeForm.UNWRAP);
@@ -1140,40 +1141,22 @@ s.writeObject(this.parameterArray());
      * @param s the stream to read the object from
      * @throws java.io.IOException if there is a problem reading the object
      * @throws ClassNotFoundException if one of the component classes cannot be resolved
-     * @see #MethodType()
      * @see #readResolve
      * @see #writeObject
      */
     private void readObject(java.io.ObjectInputStream s) throws java.io.IOException, ClassNotFoundException {
+        // Assign defaults in case this object escapes
+        UNSAFE.putObject(this, rtypeOffset, void.class);
+        UNSAFE.putObject(this, ptypesOffset, NO_PTYPES);
+
         s.defaultReadObject();  // requires serialPersistentFields to be an empty array
 
         Class<?>   returnType     = (Class<?>)   s.readObject();
         Class<?>[] parameterArray = (Class<?>[]) s.readObject();
 
-        // Probably this object will never escape, but let's check
-        // the field values now, just to be sure.
-        checkRtype(returnType);
-        checkPtypes(parameterArray);
-
-        parameterArray = parameterArray.clone();  // make sure it is unshared
-        MethodType_init(returnType, parameterArray);
-    }
-
-    /**
-     * For serialization only.
-     * Sets the final fields to null, pending {@code Unsafe.putObject}.
-     */
-    private MethodType() {
-        this.rtype = null;
-        this.ptypes = null;
-    }
-    private void MethodType_init(Class<?> rtype, Class<?>[] ptypes) {
-        // In order to communicate these values to readResolve, we must
-        // store them into the implementation-specific final fields.
-        checkRtype(rtype);
-        checkPtypes(ptypes);
-        UNSAFE.putObject(this, rtypeOffset, rtype);
-        UNSAFE.putObject(this, ptypesOffset, ptypes);
+        // Verify all operands, and make sure ptypes is unshared
+        // Cache the new MethodType for readResolve
+        wrapAlt = new MethodType[]{MethodType.methodType(returnType, parameterArray)};
     }
 
     // Support for resetting final fields while deserializing
@@ -1196,9 +1179,12 @@ s.writeObject(this.parameterArray());
      */
     private Object readResolve() {
         // Do not use a trusted path for deserialization:
-        //return makeImpl(rtype, ptypes, true);
+        //    return makeImpl(rtype, ptypes, true);
         // Verify all operands, and make sure ptypes is unshared:
-        return methodType(rtype, ptypes);
+        // Return a new validated MethodType for the rtype and ptypes passed from readObject.
+        MethodType mt = ((MethodType[])wrapAlt)[0];
+        wrapAlt = null;
+        return mt;
     }
 
     /**

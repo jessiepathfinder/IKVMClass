@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -30,25 +30,24 @@
  */
 package sun.security.krb5;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.util.Hashtable;
-import java.util.Vector;
-import java.util.ArrayList;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.IOException;
-import java.util.StringTokenizer;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Hashtable;
 import java.util.List;
 import java.util.Locale;
+import java.util.StringTokenizer;
+import java.util.Vector;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import sun.net.dns.ResolverConfiguration;
 import sun.security.krb5.internal.crypto.EType;
 import sun.security.krb5.internal.Krb5;
+import sun.security.util.SecurityProperties;
 
 /**
  * This class maintains key-value pairs of Kerberos configurable constants
@@ -56,6 +55,41 @@ import sun.security.krb5.internal.Krb5;
  */
 
 public class Config {
+
+    /**
+     * {@systemProperty sun.security.krb5.disableReferrals} property
+     * indicating whether or not cross-realm referrals (RFC 6806) are
+     * enabled.
+     */
+    public static final boolean DISABLE_REFERRALS;
+
+    /**
+     * {@systemProperty sun.security.krb5.maxReferrals} property
+     * indicating the maximum number of cross-realm referral
+     * hops allowed.
+     */
+    public static final int MAX_REFERRALS;
+
+    static {
+        String disableReferralsProp =
+                SecurityProperties.privilegedGetOverridable(
+                        "sun.security.krb5.disableReferrals");
+        if (disableReferralsProp != null) {
+            DISABLE_REFERRALS = "true".equalsIgnoreCase(disableReferralsProp);
+        } else {
+            DISABLE_REFERRALS = false;
+        }
+
+        int maxReferralsValue = 5;
+        String maxReferralsProp =
+                SecurityProperties.privilegedGetOverridable(
+                        "sun.security.krb5.maxReferrals");
+        try {
+            maxReferralsValue = Integer.parseInt(maxReferralsProp);
+        } catch (NumberFormatException e) {
+        }
+        MAX_REFERRALS = maxReferralsValue;
+    }
 
     /*
      * Only allow a single instance of Config.
@@ -117,6 +151,7 @@ public class Config {
         KdcComm.initStatic();
         EType.initStatic();
         Checksum.initStatic();
+        KrbAsReqBuilder.ReferralsState.initStatic();
     }
 
 
@@ -232,7 +267,36 @@ public class Config {
     }
 
     /**
-     * Gets all values for the specified keys.
+     * Gets the boolean value for the specified keys. Returns TRUE if the
+     * string value is "yes", or "true", FALSE if "no", or "false", or null
+     * if otherwise or not defined. The comparision is case-insensitive.
+     *
+     * @param keys the keys, see {@link #get(String...)}
+     * @return the boolean value, or null if there is no value defined or the
+     * value does not look like a boolean value.
+     * @throws IllegalArgumentException see {@link #get(String...)}
+     */
+    public Boolean getBooleanObject(String... keys) {
+        String s = get(keys);
+        if (s == null) {
+            return null;
+        }
+        switch (s.toLowerCase(Locale.US)) {
+            case "yes": case "true":
+                return Boolean.TRUE;
+            case "no": case "false":
+                return Boolean.FALSE;
+            default:
+                return null;
+        }
+    }
+
+    /**
+     * Gets all values (at least one) for the specified keys separated by
+     * a whitespace, or null if there is no such keys.
+     * The values can either be provided on a single line, or on multiple lines
+     * using the same key. When provided on a single line, the value can be
+     * comma or space separated.
      * @throws IllegalArgumentException if any of the keys is illegal
      *         (See {@link #get})
      */
@@ -242,6 +306,7 @@ public class Config {
         StringBuilder sb = new StringBuilder();
         boolean first = true;
         for (String s: v) {
+            s = s.replaceAll("[\\s,]+", " ");
             if (first) {
                 sb.append(s);
                 first = false;
@@ -289,11 +354,77 @@ public class Config {
     }
 
     /**
+     * Translates a duration value into seconds.
+     *
+     * The format can be one of "h:m[:s]", "NdNhNmNs", and "N". See
+     * http://web.mit.edu/kerberos/krb5-devel/doc/basic/date_format.html#duration
+     * for definitions.
+     *
+     * @param s the string duration
+     * @return time in seconds
+     * @throws KrbException if format is illegal
+     */
+    public static int duration(String s) throws KrbException {
+
+        if (s.isEmpty()) {
+            throw new KrbException("Duration cannot be empty");
+        }
+
+        // N
+        if (s.matches("\\d+")) {
+            return Integer.parseInt(s);
+        }
+
+        // h:m[:s]
+        Matcher m = Pattern.compile("(\\d+):(\\d+)(:(\\d+))?").matcher(s);
+        if (m.matches()) {
+            int hr = Integer.parseInt(m.group(1));
+            int min = Integer.parseInt(m.group(2));
+            if (min >= 60) {
+                throw new KrbException("Illegal duration format " + s);
+            }
+            int result = hr * 3600 + min * 60;
+            if (m.group(4) != null) {
+                int sec = Integer.parseInt(m.group(4));
+                if (sec >= 60) {
+                    throw new KrbException("Illegal duration format " + s);
+                }
+                result += sec;
+            }
+            return result;
+        }
+
+        // NdNhNmNs
+        // 120m allowed. Maybe 1h120m is not good, but still allowed
+        m = Pattern.compile(
+                    "((\\d+)d)?\\s*((\\d+)h)?\\s*((\\d+)m)?\\s*((\\d+)s)?",
+                Pattern.CASE_INSENSITIVE).matcher(s);
+        if (m.matches()) {
+            int result = 0;
+            if (m.group(2) != null) {
+                result += 86400 * Integer.parseInt(m.group(2));
+            }
+            if (m.group(4) != null) {
+                result += 3600 * Integer.parseInt(m.group(4));
+            }
+            if (m.group(6) != null) {
+                result += 60 * Integer.parseInt(m.group(6));
+            }
+            if (m.group(8) != null) {
+                result += Integer.parseInt(m.group(8));
+            }
+            return result;
+        }
+
+        throw new KrbException("Illegal duration format " + s);
+    }
+
+    /**
      * Gets the int value for the specified keys.
      * @param keys the keys
      * @return the int value, Integer.MIN_VALUE is returned if it cannot be
      * found or the value is not a legal integer.
-     * @throw IllegalArgumentException if any of the keys is illegal
+     * @throws IllegalArgumentException if any of the keys is illegal
      * @see #get(java.lang.String[])
      */
     public int getIntValue(String... keys) {
@@ -500,9 +631,9 @@ public class Config {
                 String previous = null;
                 while ((line = br.readLine()) != null) {
                     line = line.trim();
-                    if (line.startsWith("#") || line.isEmpty()) {
+                    if (line.isEmpty() || line.startsWith("#") || line.startsWith(";")) {
                         // ignore comments and blank line
-                        // Comments start with #.
+                        // Comments start with '#' or ';'
                         continue;
                     }
                     // In practice, a subsection might look like:
@@ -942,32 +1073,30 @@ public class Config {
     /**
      * Check if need to use DNS to locate Kerberos services
      */
-    private boolean useDNS(String name) {
-        String value = get("libdefaults", name);
-        if (value == null) {
-            value = get("libdefaults", "dns_fallback");
-            if ("false".equalsIgnoreCase(value)) {
-                return false;
-            } else {
-                return true;
-            }
-        } else {
-            return value.equalsIgnoreCase("true");
+    private boolean useDNS(String name, boolean defaultValue) {
+        Boolean value = getBooleanObject("libdefaults", name);
+        if (value != null) {
+            return value.booleanValue();
         }
+        value = getBooleanObject("libdefaults", "dns_fallback");
+        if (value != null) {
+            return value.booleanValue();
+        }
+        return defaultValue;
     }
 
     /**
      * Check if need to use DNS to locate the KDC
      */
     private boolean useDNS_KDC() {
-        return useDNS("dns_lookup_kdc");
+        return useDNS("dns_lookup_kdc", true);
     }
 
     /*
      * Check if need to use DNS to locate the Realm
      */
     private boolean useDNS_Realm() {
-        return useDNS("dns_lookup_realm");
+        return useDNS("dns_lookup_realm", false);
     }
 
     /**
