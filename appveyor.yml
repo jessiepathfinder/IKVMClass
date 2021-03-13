@@ -15,6 +15,9 @@ build_script:
  - nant\nant.exe
  - 7z a -mm=Deflate -mmt=on -mx=9 ..\ikvm-test-build.zip bin
  - cd ..\
+#BEGIN Testing Code
+ - appveyor DownloadFile https://altushost-swe.dl.sourceforge.net/project/dacapobench/9.12-bach-MR1/dacapo-9.12-MR1-bach.jar
+ 
 artifacts:
  - path: ikvm-test-build.zip
    name: ikvm-test-build
