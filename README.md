@@ -1,5 +1,5 @@
 # IKVMClass
-[![Build status](https://ci.appveyor.com/api/projects/status/8mfdxagj4iaj9gyg?svg=true)](https://ci.appveyor.com/project/jessielesbian/ikvmclass)
+[![Build status](https://ci.appveyor.com/api/projects/status/hnxdqxub38rud22i?svg=true)](https://ci.appveyor.com/project/jessielesbian/ikvmclass)
 
 IKVMClass is an OpenJDK fork built for IKVM.NET. Contains some work from Jeroen Frijters, Windward Studios, and ikvm-revived as well.
 ## Build
