@@ -5,8 +5,8 @@ build_script:
  - git clone https://github.com/jessielesbian/ikvm
  - purgeclasses.bat
  - cd ..\
- - robocopy /E /MOV /MT 2 /ZB classpath built-ikvm\classpath
- - robocopy /E /MOV /MT 2 /ZB openjdk built-ikvm\openjdk
+ - robocopy /E /MOV /MT:2 /ZB classpath built-ikvm\classpath
+ - robocopy /E /MOV /MT:2 /ZB openjdk built-ikvm\openjdk
  - cd built-ikvm
  - nant\nant.exe
  - 7z a -mm=Deflate -mmt=on -mx=9 ..\ikvm-test-build-with-ikvmclass-{version}.zip bin
