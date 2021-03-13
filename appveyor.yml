@@ -1,6 +1,6 @@
 build_script:
  - cd openjdk
- - bootstrap-ikvm\javac.exe -g:none -sourcepath openjdk\sourcepath282 -bootclasspath ikvmstubs.jar @openjdk\allsources.lst
+ - ..\bootstrap-ikvm\javac.exe -g:none -sourcepath openjdk\sourcepath282 -bootclasspath ikvmstubs.jar @openjdk\allsources.lst
  - cd ..\built-ikvm
  - git clone https://github.com/jessielesbian/ikvm
  - purgeclasses.bat
