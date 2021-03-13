@@ -15,9 +15,23 @@ build_script:
  - nant\nant.exe
  - 7z a -mm=Deflate -mmt=on -mx=9 ..\ikvm-test-build.zip bin
  - cd ..\
-#BEGIN Testing Code
+test_script:
  - appveyor DownloadFile https://altushost-swe.dl.sourceforge.net/project/dacapobench/9.12-bach-MR1/dacapo-9.12-MR1-bach.jar
- 
+ - ikvmtest.bat avrora
+ - ikvmtest.bat batik
+ - ikvmtest.bat eclipse
+ - ikvmtest.bat fop
+ - ikvmtest.bat h2
+ - ikvmtest.bat jython
+ - ikvmtest.bat luindex
+ - ikvmtest.bat lusearch
+ - ikvmtest.bat lusearch-fix
+ - ikvmtest.bat pmd
+ - ikvmtest.bat sunflow
+ - ikvmtest.bat tomcat
+ - ikvmtest.bat tradebeans
+ - ikvmtest.bat tradesoap
+ - ikvmtest.bat xalan
 artifacts:
  - path: ikvm-test-build.zip
    name: ikvm-test-build
