@@ -13,9 +13,9 @@ build_script:
  - robocopy /E /MOV /MT:2 /ZB openjdk built-ikvm\openjdk *.class >>nul & exit 0
  - cd built-ikvm
  - nant\nant.exe
- - 7z a -mm=Deflate -mmt=on -mx=9 ..\ikvm-test-build-with-ikvmclass-{version}.zip bin
+ - 7z a -mm=Deflate -mmt=on -mx=9 ..\ikvm-test-build.zip bin
  - cd ..\
 artifacts:
- - path: ikvm-test-build-with-ikvmclass-{version}.zip
-   name: ikvm-test-build-with-ikvmclass-{version}
+ - path: ikvm-test-build.zip
+   name: ikvm-test-build
    type: zip
