@@ -3,10 +3,9 @@ build_script:
  - ..\bootstrap-ikvm\javac.exe -g:none -sourcepath sourcepath282 -bootclasspath ..\ikvmstubs.jar @allsources.lst
  - cd ..\
  - git clone https://github.com/jessielesbian/ikvm built-ikvm
+ - robocopy /E /MOV /MT:2 /ZB purge-classes built-ikvm >>nul & exit 0
  - cd built-ikvm
  - robocopy /E /MOV /MT:2 /ZB openjdk\rmistubs ..\backup-rmistubs *.class >>nul & exit 0
- - echo @echo off>>purgeclasses.bat
- - echo for /R %%f in (*.class) do del /f "%%f">>purgeclasses.bat
  - purgeclasses.bat
  - robocopy /E /MOV /MT:2 /ZB ..\backup-rmistubs openjdk\rmistubs *.class >>nul & exit 0
  - cd ..\
