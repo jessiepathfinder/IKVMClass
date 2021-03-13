@@ -3,7 +3,7 @@ built-ikvm\bin\ikvm.exe -Xextremeoptimize -jar dacapo-9.12-MR1-bach.jar %1>ikvmt
 rmdir /s /q scratch
 set TEST_RESULT=1
 FOR /F "tokens=* delims=" %%x in (ikvmtest.txt) DO call chktestpassing.bat "%%x"
-if %TEST_RESULT% EQU 0 goto pass
+if exist TEST_PASSING goto pass
 appveyor AddTest -Name %1 -Framework IKVMTest -FileName built-ikvm\bin\ikvm.exe -Outcome Failed
 goto end
 :pass
