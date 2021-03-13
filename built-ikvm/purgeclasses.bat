@@ -1,3 +1,0 @@
-@echo off
-echo cleaning old class files...
-for /R %%f in (*.class) do del /f "%%f"
