@@ -12,4 +12,4 @@ goto end
 :pass
 appveyor AddTest -Name %1 -Framework IKVMTest -FileName built-ikvm\bin\ikvm.exe -Outcome Passed
 :end
-exit /b 0
+set ERRORLEVEL=0
