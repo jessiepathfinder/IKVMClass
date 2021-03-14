@@ -52,6 +52,18 @@ public final class FileDescriptor {
     private volatile cli.System.Net.Sockets.Socket socket;
     private volatile boolean nonBlockingSocket;
     private volatile cli.System.IAsyncResult asyncResult;
+	
+	@ikvm.lang.Internal
+	public cli.System.IO.Stream baseStream = cli.System.IO.Stream.Null;
+	
+	@ikvm.lang.Internal
+	public cli.System.IO.Stream getBaseStream(){
+		if(baseStream == cli.System.IO.Stream.Null){
+			return stream;
+		} else{
+			return baseStream;
+		}
+	}
 
     /**
      * HACK
@@ -78,6 +90,11 @@ public final class FileDescriptor {
                 cli.System.IO.FileStream fs = (cli.System.IO.FileStream)stream;
                 return fs.get_Handle().ToInt64();
             }
+			else if (baseStream instanceof cli.System.IO.FileStream)
+            {
+                cli.System.IO.FileStream fs = (cli.System.IO.FileStream)baseStream;
+                return fs.get_Handle().ToInt64();
+            }
             else if (this == in)
             {
                 return GetStdHandle(-10).ToInt64();
@@ -102,6 +119,11 @@ public final class FileDescriptor {
             if (stream instanceof cli.System.IO.FileStream)
             {
                 cli.System.IO.FileStream fs = (cli.System.IO.FileStream)stream;
+                return fs.get_Handle().ToInt32();
+            }
+			else if (baseStream instanceof cli.System.IO.FileStream)
+            {
+                cli.System.IO.FileStream fs = (cli.System.IO.FileStream)baseStream;
                 return fs.get_Handle().ToInt32();
             }
             else if (this == in)
@@ -202,29 +224,9 @@ public final class FileDescriptor {
             throw new SyncFailedException("sync failed");
         }
 
-        if (!stream.get_CanWrite())
+        if (stream.get_CanWrite())
         {
-            return;
-        }
-
-        try
-        {
-            if (false) throw new cli.System.IO.IOException();
             stream.Flush();
-        }
-        catch (cli.System.IO.IOException x)
-        {
-            throw new SyncFailedException(x.getMessage());
-        }
-
-        if (stream instanceof FileStream)
-        {
-            FileStream fs = (FileStream)stream;
-            boolean ok = ikvm.internal.Util.WINDOWS ? flushWin32(fs) : flushPosix(fs);
-            if (!ok)
-            {
-                throw new SyncFailedException("sync failed");
-            }
         }
     }
 
@@ -357,12 +359,13 @@ public final class FileDescriptor {
             cli.System.UnauthorizedAccessException,
             cli.System.ArgumentException,
             cli.System.NotSupportedException;
-    
+    private static native cli.System.IO.Stream considerCache(cli.System.IO.Stream str);
     private void open(String name, int fileMode, int fileAccess) throws FileNotFoundException
     {
         try
         {
-            stream = open(name, FileMode.wrap(fileMode), FileAccess.wrap(fileAccess));
+            baseStream = open(name, FileMode.wrap(fileMode), FileAccess.wrap(fileAccess));
+			stream = considerCache(baseStream);
         }
         catch (cli.System.Security.SecurityException x1)
         {

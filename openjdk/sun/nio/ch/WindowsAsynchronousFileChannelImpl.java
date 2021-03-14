@@ -209,7 +209,7 @@ public class WindowsAsynchronousFileChannelImpl
 
         @Override
         public void run() {
-            FileStream fs = (FileStream)fdObj.getStream();
+            FileStream fs = (FileStream)fdObj.getBaseStream();
             for (;;) {
                 try {
                     begin();
@@ -332,7 +332,7 @@ public class WindowsAsynchronousFileChannelImpl
             int res;
             try {
                 if (false) throw new cli.System.IO.IOException();
-                FileStream fs = (FileStream)fdObj.getStream();
+                FileStream fs = (FileStream)fdObj.getBaseStream();
                 fs.Lock(position, size);
                 res = LOCKED;
             } catch (cli.System.IO.IOException throwaway) {
@@ -353,7 +353,7 @@ public class WindowsAsynchronousFileChannelImpl
     protected void implRelease(FileLockImpl fli) throws IOException {
         try {
             if (false) throw new cli.System.IO.IOException();
-            FileStream fs = (FileStream)fdObj.getStream();
+            FileStream fs = (FileStream)fdObj.getBaseStream();
             fs.Unlock(fli.position(), fli.size());
         } catch (cli.System.IO.IOException x) {
             if (!FileDispatcherImpl.NotLockedHack.isErrorNotLocked(x)) {
@@ -421,7 +421,7 @@ public class WindowsAsynchronousFileChannelImpl
                 begin();
 
                 // initiate read
-                FileStream fs = (FileStream)fdObj.getStream();
+                FileStream fs = (FileStream)fdObj.getBaseStream();
                 fs.Seek(position, SeekOrigin.wrap(SeekOrigin.Begin));
                 fs.BeginRead(buf.array(), buf.arrayOffset() + pos, rem, new AsyncCallback(this), null);
                 return;
@@ -439,7 +439,7 @@ public class WindowsAsynchronousFileChannelImpl
 
         public void Invoke(IAsyncResult ar) {
             try {
-                FileStream fs = (FileStream)fdObj.getStream();
+                FileStream fs = (FileStream)fdObj.getBaseStream();
                 completed(fs.EndRead(ar), false);
             } catch (Throwable x) {
                 failed(0, toIOException(x));
@@ -583,7 +583,7 @@ public class WindowsAsynchronousFileChannelImpl
                 begin();
 
                 // initiate the write
-                FileStream fs = (FileStream)fdObj.getStream();
+                FileStream fs = (FileStream)fdObj.getBaseStream();
                 fs.Seek(position, SeekOrigin.wrap(SeekOrigin.Begin));
                 fs.BeginWrite(buf.array(), buf.arrayOffset() + pos, rem, new AsyncCallback(this), null);
                 return;
@@ -602,7 +602,7 @@ public class WindowsAsynchronousFileChannelImpl
 
         public void Invoke(IAsyncResult ar) {
             try {
-                FileStream fs = (FileStream)fdObj.getStream();
+                FileStream fs = (FileStream)fdObj.getBaseStream();
                 fs.EndWrite(ar);
                 completed(rem, false);
             } catch (Throwable x) {

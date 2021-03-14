@@ -1017,7 +1017,7 @@ public class FileChannelImpl
     // Creates a new mapping
     private long map0(int prot, long position, long length) throws IOException
     {
-        FileStream fs = (FileStream)fd.getStream();
+        FileStream fs = (FileStream)fd.getBaseStream();
         if (win32)
             return mapViewOfFileWin32(fs, prot, position, length);
         else

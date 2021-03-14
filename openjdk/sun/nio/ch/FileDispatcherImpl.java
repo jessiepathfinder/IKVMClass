@@ -134,7 +134,7 @@ class FileDispatcherImpl extends FileDispatcher
     int truncate(FileDescriptor fd, long size) throws IOException {
         if (append) {
             // HACK in append mode we're not allowed to truncate, so we try to reopen the file and truncate that
-            try (FileOutputStream fos = new FileOutputStream(((FileStream)fd.getStream()).get_Name())) {
+            try (FileOutputStream fos = new FileOutputStream(((FileStream)fd.getBaseStream()).get_Name())) {
                 fos.getFD().setLength(size);
             }
         } else {
@@ -161,7 +161,7 @@ class FileDispatcherImpl extends FileDispatcher
     int lock(FileDescriptor fd, boolean blocking, long pos, long size,
              boolean shared) throws IOException
     {
-        FileStream fs = (FileStream)fd.getStream();
+        FileStream fs = (FileStream)fd.getBaseStream();
         if (WINDOWS)
         {
             int LOCKFILE_FAIL_IMMEDIATELY = 1;
@@ -228,7 +228,7 @@ class FileDispatcherImpl extends FileDispatcher
 
     @cli.System.Security.SecuritySafeCriticalAttribute.Annotation
     void release(FileDescriptor fd, long pos, long size) throws IOException {
-        FileStream fs = (FileStream)fd.getStream();
+        FileStream fs = (FileStream)fd.getBaseStream();
         if (WINDOWS)
         {
             int ERROR_NOT_LOCKED = 158;

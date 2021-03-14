@@ -34,7 +34,7 @@ public class FileKey
     public static FileKey create(FileDescriptor fd)
     {
         FileKey fk = new FileKey();
-        fk.path = ((cli.System.IO.FileStream)fd.getStream()).get_Name();
+        fk.path = ((cli.System.IO.FileStream)fd.getBaseStream()).get_Name();
         try
         {
             fk.path = new File(fk.path).getCanonicalPath();
