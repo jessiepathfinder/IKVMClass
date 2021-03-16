@@ -1770,19 +1770,8 @@ class Thread implements Runnable {
      * @since 1.4
      */
     public static boolean holdsLock(Object obj) {
-        if (obj == null) {
-            throw new NullPointerException();
-        }
-        try {
-            if (false) throw new cli.System.Threading.SynchronizationLockException();
-            // The 1.5 memory model (JSR133) explicitly allows spurious wake-ups from Object.wait,
-            // so we abuse Pulse to check if we own the monitor.
-            cli.System.Threading.Monitor.Pulse(obj);
-            return true;
-        }
-        catch (cli.System.Threading.SynchronizationLockException throwaway) {
-            return false;
-        }
+		//Don't you know that this is .NET 4.5 already? NOOB
+        return cli.System.Threading.Monitor.IsEntered(obj);
     }
 
     private static final StackTraceElement[] EMPTY_STACK_TRACE

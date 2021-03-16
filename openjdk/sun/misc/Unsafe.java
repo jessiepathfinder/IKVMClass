@@ -907,10 +907,9 @@ public final class Unsafe
     @cli.System.Security.SecurityCriticalAttribute.Annotation
     public void setMemory(long address, long bytes, byte value)
     {
-        while (bytes-- > 0)
-        {
-            putByte(address++, value);
-        }
+        for(long i = 0; i < bytes; i++){
+			cli.System.Runtime.InteropServices.Marshal.WriteByte(IntPtr.op_Explicit(address + i), value);
+		}
     }
 
     @SecurityPermissionAttribute.Annotation(value = SecurityAction.__Enum.LinkDemand, UnmanagedCode = true)
@@ -947,10 +946,10 @@ public final class Unsafe
     @cli.System.Security.SecurityCriticalAttribute.Annotation
     public void copyMemory(long srcAddress, long destAddress, long bytes)
     {
-	while (bytes-- > 0)
-	{
-	    putByte(destAddress++, getByte(srcAddress++));
-	}
+		for (long i = 0; i < bytes; i++)
+		{
+			cli.System.Runtime.InteropServices.Marshal.WriteByte(IntPtr.op_Explicit(destAddress + i), cli.System.Runtime.InteropServices.Marshal.ReadByte(IntPtr.op_Explicit(srcAddress + i)));
+		}
     }
     
     @SecurityPermissionAttribute.Annotation(value = SecurityAction.__Enum.LinkDemand, UnmanagedCode = true)

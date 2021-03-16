@@ -13,7 +13,7 @@ build_script:
  - robocopy /E /MOV /MT:2 /ZB openjdk built-ikvm\openjdk *.class >>nul & exit 0
  - cd built-ikvm
  - nant\nant.exe
- - 7z a -mm=Deflate -mmt=on -mx=9 ..\ikvm-test-build.zip bin
+ - 7z a -mm=Deflate -mmt=on -mx=9 ..\ikvm-test-build.zip .\bin\*
  - cd ..\
 test_script:
  - appveyor DownloadFile https://altushost-swe.dl.sourceforge.net/project/dacapobench/9.12-bach-MR1/dacapo-9.12-MR1-bach.jar

@@ -30,7 +30,7 @@
 @cli.System.Reflection.AssemblyTitleAttribute.Annotation("IKVM.NET OpenJDK Library for .NET")
 @cli.System.Reflection.AssemblyProductAttribute.Annotation("IKVM.NET")
 @cli.System.Reflection.AssemblyCompanyAttribute.Annotation("Jeroen Frijters")
-@cli.System.Reflection.AssemblyInformationalVersionAttribute.Annotation("8.6.8.0")
+@cli.System.Reflection.AssemblyInformationalVersionAttribute.Annotation("8.6.9.0")
 
 @cli.System.Runtime.CompilerServices.InternalsVisibleToAttribute.Annotation.__Multiple({
     @cli.System.Runtime.CompilerServices.InternalsVisibleToAttribute.Annotation("IKVM.Runtime"),
