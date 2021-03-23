@@ -89,7 +89,7 @@ final class DotNetSelectorImpl extends SelectorImpl
         (sink.sc).socket().setTcpNoDelay(true);
         wakeupSinkFd = ((SelChImpl)sink).getFD().getSocket();
     }
-
+	
     protected int doSelect(long timeout) throws IOException
     {
         if (channelArray == null)
@@ -137,12 +137,22 @@ final class DotNetSelectorImpl extends SelectorImpl
         try
         {
             begin();
-            int microSeconds = 1000 * (int)Math.min(Integer.MAX_VALUE / 1000, timeout);
+            int microSeconds;
+			if(timeout < 0 || timeout > Integer.MAX_VALUE || MinecraftMode.Enabled){
+				//bugfix
+				microSeconds = Integer.MAX_VALUE;
+			} else{
+				microSeconds = (int)(1000L * timeout);
+				if((long) microSeconds != 1000L * timeout){
+					//Value overflow!
+					microSeconds = Integer.MAX_VALUE;
+				}
+			}
+			
             try
             {
                 if (false) throw new SocketException();
-                // FXBUG docs say that -1 is infinite timeout, but that doesn't appear to work
-                Socket.Select(read, write, error, timeout < 0 ? Integer.MAX_VALUE : microSeconds);
+                Socket.Select(read, write, error, microSeconds);
             }
             catch (SocketException throwaway)
             {

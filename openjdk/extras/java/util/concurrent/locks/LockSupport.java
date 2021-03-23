@@ -160,22 +160,22 @@ public class LockSupport {
             }
         }
     }
+	
+	private static final Object globalSync = "";
 
     private static void parkImpl(Thread currentThread, boolean deadline, long nanos)
     {
-        if (cmpxchgParkState(currentThread, PARK_STATE_RUNNING, PARK_STATE_PERMIT) == PARK_STATE_PERMIT)
-        {
-            // we consumed a permit
-            return;
-        }
-
-        Object lock = getParkLock(currentThread);
-        if (lock == null)
-        {
-            // we lazily allocate the lock object
-            lock = new Object();
-            setParkLock(currentThread, lock);
-        }
+		Object lock = null;
+		synchronized(globalSync){
+			lock = getParkLock(currentThread);
+			if (lock == null)
+			{
+				// we lazily allocate the lock object
+				lock = new Object();
+				setParkLock(currentThread, lock);
+			}
+		}
+        
         synchronized (lock)
         {
             if (cmpxchgParkState(currentThread, PARK_STATE_PARKED, PARK_STATE_RUNNING) == PARK_STATE_PERMIT)
