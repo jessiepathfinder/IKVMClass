@@ -61,7 +61,7 @@ public class DeflaterInputStream extends FilterInputStream {
      * Check to make sure that this stream has not been closed.
      */
     private void ensureOpen() throws IOException {
-        if (in == null) {
+        if (in == null || def.getState() == 0x7f) {
             throw new IOException("Stream closed");
         }
     }
@@ -123,7 +123,7 @@ public class DeflaterInputStream extends FilterInputStream {
      * @throws IOException if an I/O error occurs
      */
     public void close() throws IOException {
-        if (in != null) {
+        if (in != null || def.getState() != 0x7f) {
             try {
                 // Clean up
                 if (usesDefaultDeflater) {

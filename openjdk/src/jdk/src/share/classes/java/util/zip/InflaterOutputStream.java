@@ -61,7 +61,7 @@ public class InflaterOutputStream extends FilterOutputStream {
      * Checks to make sure that this stream has not been closed.
      */
     private void ensureOpen() throws IOException {
-        if (closed) {
+        if (closed || inf.terminated()) {
             throw new IOException("Stream closed");
         }
     }
@@ -123,7 +123,7 @@ public class InflaterOutputStream extends FilterOutputStream {
      * @throws IOException if an I/O error occurs
      */
     public void close() throws IOException {
-        if (!closed) {
+        if (!(closed || inf.terminated())) {
             // Complete the uncompressed output
             try {
                 finish();

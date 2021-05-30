@@ -63,7 +63,7 @@ class InflaterInputStream extends FilterInputStream {
      * Check to make sure that this stream has not been closed
      */
     private void ensureOpen() throws IOException {
-        if (closed) {
+        if (closed || inf.terminated()) {
             throw new IOException("Stream closed");
         }
     }
@@ -221,7 +221,7 @@ class InflaterInputStream extends FilterInputStream {
      * @exception IOException if an I/O error has occurred
      */
     public void close() throws IOException {
-        if (!closed) {
+        if (!(closed || inf.terminated())) {
             if (usesDefaultInflater)
                 inf.end();
             in.close();
