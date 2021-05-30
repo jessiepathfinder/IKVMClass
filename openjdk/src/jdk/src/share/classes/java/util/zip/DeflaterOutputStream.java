@@ -234,7 +234,7 @@ class DeflaterOutputStream extends FilterOutputStream {
      * @exception IOException if an I/O error has occurred
      */
     public void close() throws IOException {
-        if (!closed) {
+        if (!(closed || def.getState() == 0x7f)) {
             finish();
             if (usesDefaultDeflater)
                 def.end();
@@ -272,7 +272,7 @@ class DeflaterOutputStream extends FilterOutputStream {
     public void flush() throws IOException {
         if (syncFlush && !def.finished()) {
             int len = 0;
-            while ((len = def.deflate(buf, 0, buf.length, Deflater.SYNC_FLUSH)) > 0)
+            while ((len = def.deflate(buf, 0, buf.length)) > 0)
             {
                 out.write(buf, 0, len);
                 if (len < buf.length)
