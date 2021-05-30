@@ -7,7 +7,7 @@ GNU Classpath is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
- 
+
 GNU Classpath is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -43,7 +43,7 @@ package java.util.zip;
  */
 
 /**
- * Inflater is used to decompress data that has been compressed according 
+ * Inflater is used to decompress data that has been compressed according
  * to the "deflate" standard described in rfc1950.
  *
  * The usage is as following.  First you have to set some input with
@@ -51,10 +51,10 @@ package java.util.zip;
  * inflate any bytes there may be three reasons:
  * <ul>
  * <li>needsInput() returns true because the input buffer is empty.
- * You have to provide more input with <code>setInput()</code>.  
+ * You have to provide more input with <code>setInput()</code>.
  * NOTE: needsInput() also returns true when, the stream is finished.
  * </li>
- * <li>needsDictionary() returns true, you have to provide a preset 
+ * <li>needsDictionary() returns true, you have to provide a preset
  *     dictionary with <code>setDictionary()</code>.</li>
  * <li>finished() returns true, the inflater has finished.</li>
  * </ul>
@@ -69,15 +69,15 @@ package java.util.zip;
 public class Inflater
 {
   /* Copy lengths for literal codes 257..285 */
-  private static final int CPLENS[] = 
-  { 
+  private static final int CPLENS[] =
+  {
     3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31,
     35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258
   };
-  
-  /* Extra bits for literal codes 257..285 */  
-  private static final int CPLEXT[] = 
-  { 
+
+  /* Extra bits for literal codes 257..285 */
+  private static final int CPLEXT[] =
+  {
     0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2,
     3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0
   };
@@ -88,11 +88,11 @@ public class Inflater
     257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145,
     8193, 12289, 16385, 24577
   };
-  
+
   /* Extra bits for distance codes */
   private static final int CPDEXT[] = {
     0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6,
-    7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 
+    7, 7, 8, 8, 9, 9, 10, 10, 11, 11,
     12, 12, 13, 13
   };
 
@@ -122,10 +122,10 @@ public class Inflater
    * Only valid if mode is DECODE_DICT or DECODE_CHKSUM.
    */
   private int readAdler;
-  /** 
+  /**
    * The number of bits needed to complete the current state.  This
    * is valid, if mode is DECODE_DICT, DECODE_CHKSUM,
-   * DECODE_HUFFMAN_LENBITS or DECODE_HUFFMAN_DISTBITS.  
+   * DECODE_HUFFMAN_LENBITS or DECODE_HUFFMAN_DISTBITS.
    */
   private int neededBits;
   private int repLength, repDist;
@@ -133,7 +133,7 @@ public class Inflater
   /**
    * True, if the last block flag was set in the last block of the
    * inflated stream.  This means that the stream ends after the
-   * current block.  
+   * current block.
    */
   private boolean isLastBlock;
 
@@ -143,7 +143,7 @@ public class Inflater
   private long totalOut;
   /**
    * The total number of bytes set with setInput().  This is not the
-   * value returned by getTotalIn(), since this also includes the 
+   * value returned by getTotalIn(), since this also includes the
    * unprocessed input.
    */
   private long totalIn;
@@ -191,14 +191,14 @@ public class Inflater
   {
     /* Exists only for compatibility */
   }
-
+private boolean fired = false;
   /**
    * Frees all objects allocated by the inflater.  There's no reason
    * to call this, since you can just rely on garbage collection (even
    * for the Sun implementation).  Exists only for compatibility
    * with Sun's JDK, where the compressor allocates native memory.
    * If you call any method (even reset) afterwards the behaviour is
-   * <i>undefined</i>.  
+   * <i>undefined</i>.
    */
   public void end ()
   {
@@ -208,16 +208,19 @@ public class Inflater
     litlenTree = null;
     distTree = null;
     adler = null;
+	fired = true;
   }
+public boolean terminated(){
+	return fired;
+}
 
   /**
    * Returns true, if the inflater has finished.  This means, that no
    * input is needed and no output can be produced.
    */
-  public boolean finished() 
+  public boolean finished()
   {
-    return mode == FINISHED
-        && (outputWindow == null || outputWindow.getAvailable() == 0);
+    return mode == FINISHED && outputWindow.getAvailable() == 0;
   }
 
   /**
@@ -231,18 +234,18 @@ public class Inflater
   {
     return needsDictionary() ? readAdler : (int) adler.getValue();
   }
-  
+
   /**
    * Gets the number of unprocessed input.  Useful, if the end of the
    * stream is reached and you want to further process the bytes after
-   * the deflate stream.  
+   * the deflate stream.
    * @return the number of bytes of the input which were not processed.
    */
   public int getRemaining()
   {
     return input.getAvailableBytes();
   }
-  
+
   /**
    * Gets the total number of processed compressed input bytes.
    * @return the total number of bytes of processed input bytes.
@@ -284,11 +287,11 @@ public class Inflater
   /**
    * Inflates the compressed stream to the output buffer.  If this
    * returns 0, you should check, whether needsDictionary(),
-   * needsInput() or finished() returns true, to determine why no 
+   * needsInput() or finished() returns true, to determine why no
    * further output is produced.
    * @param buf the output buffer.
    * @return the number of bytes written to the buffer, 0 if no further
-   * output can be produced.  
+   * output can be produced.
    * @exception DataFormatException if deflated stream is invalid.
    * @exception IllegalArgumentException if buf has length 0.
    */
@@ -300,13 +303,13 @@ public class Inflater
   /**
    * Inflates the compressed stream to the output buffer.  If this
    * returns 0, you should check, whether needsDictionary(),
-   * needsInput() or finished() returns true, to determine why no 
+   * needsInput() or finished() returns true, to determine why no
    * further output is produced.
    * @param buf the output buffer.
    * @param off the offset into buffer where the output should start.
    * @param len the maximum length of the output.
    * @return the number of bytes written to the buffer, 0 if no further
-   * output can be produced.  
+   * output can be produced.
    * @exception DataFormatException if deflated stream is invalid.
    * @exception IndexOutOfBoundsException if the off and/or len are wrong.
    */
@@ -352,9 +355,9 @@ public class Inflater
    *
    * <em>NOTE</em>: This method also returns true when the stream is finished.
    */
-  public boolean needsInput () 
+  public boolean needsInput ()
   {
-    return input == null || input.needsInput ();
+    return input.needsInput ();
   }
 
   /**
@@ -382,7 +385,7 @@ public class Inflater
    * @param buffer the dictionary.
    * @exception IllegalStateException if no dictionary is needed.
    * @exception IllegalArgumentException if the dictionary checksum is
-   * wrong.  
+   * wrong.
    */
   public void setDictionary (byte[] buffer)
   {
@@ -399,7 +402,7 @@ public class Inflater
    * @param len the length of the dictionary.
    * @exception IllegalStateException if no dictionary is needed.
    * @exception IllegalArgumentException if the dictionary checksum is
-   * wrong.  
+   * wrong.
    * @exception IndexOutOfBoundsException if the off and/or len are wrong.
    */
   public void setDictionary (byte[] buffer, int off, int len)
@@ -421,7 +424,7 @@ public class Inflater
    * @param buf the input.
    * @exception IllegalStateException if no input is needed.
    */
-  public void setInput (byte[] buf) 
+  public void setInput (byte[] buf)
   {
     setInput (buf, 0, buf.length);
   }
@@ -431,11 +434,11 @@ public class Inflater
    * returns true.
    * @param buf the input.
    * @param off the offset into buffer where the input starts.
-   * @param len the length of the input.  
+   * @param len the length of the input.
    * @exception IllegalStateException if no input is needed.
    * @exception IndexOutOfBoundsException if the off and/or len are wrong.
    */
-  public void setInput (byte[] buf, int off, int len) 
+  public void setInput (byte[] buf, int off, int len)
   {
     input.setInput (buf, off, len);
     totalIn += len;
@@ -443,7 +446,7 @@ public class Inflater
 
   /**
    * Decodes the deflate header.
-   * @return false if more input is needed. 
+   * @return false if more input is needed.
    * @exception DataFormatException if header is invalid.
    */
   private boolean decodeHeader () throws DataFormatException
@@ -452,22 +455,22 @@ public class Inflater
     if (header < 0)
       return false;
     input.dropBits(16);
-    
+
     /* The header is written in "wrong" byte order */
     header = ((header << 8) | (header >> 8)) & 0xffff;
     if (header % 31 != 0)
       throw new DataFormatException("Header checksum illegal");
-    
+
     if ((header & 0x0f00) != (Deflater.DEFLATED << 8))
       throw new DataFormatException("Compression Method unknown");
 
-    /* Maximum size of the backwards window in bits. 
+    /* Maximum size of the backwards window in bits.
      * We currently ignore this, but we could use it to make the
      * inflater window more space efficient. On the other hand the
      * full window (15 bits) is needed most times, anyway.
      int max_wbits = ((header & 0x7000) >> 12) + 8;
      */
-    
+
     if ((header & 0x0020) == 0) // Dictionary flag?
       {
         mode = DECODE_BLOCKS;
@@ -475,14 +478,14 @@ public class Inflater
     else
       {
         mode = DECODE_DICT;
-        neededBits = 32;      
+        neededBits = 32;
       }
     return true;
   }
-   
+
   /**
    * Decodes the dictionary checksum after the deflate header.
-   * @return false if more input is needed. 
+   * @return false if more input is needed.
    */
   private boolean decodeDict ()
   {
@@ -502,7 +505,7 @@ public class Inflater
    * Decodes the huffman encoded symbols in the input stream.
    * @return false if more input is needed, true if output window is
    * full or the current block ends.
-   * @exception DataFormatException if deflated stream is invalid.  
+   * @exception DataFormatException if deflated stream is invalid.
    */
   private boolean decodeHuffman () throws DataFormatException
   {
@@ -519,7 +522,7 @@ public class Inflater
                 outputWindow.write(symbol);
                 if (--free < 258)
                   return true;
-              } 
+              }
             if (symbol < 257)
               {
                 if (symbol < 0)
@@ -533,7 +536,7 @@ public class Inflater
                     return true;
                   }
               }
-                
+
             try
               {
                 repLength = CPLENS[symbol - 257];
@@ -560,7 +563,7 @@ public class Inflater
             symbol = distTree.getSymbol(input);
             if (symbol < 0)
               return false;
-            try 
+            try
               {
                 repDist = CPDIST[symbol];
                 neededBits = CPDEXT[symbol];
@@ -593,7 +596,7 @@ public class Inflater
 
   /**
    * Decodes the adler checksum after the deflate stream.
-   * @return false if more input is needed. 
+   * @return false if more input is needed.
    * @exception DataFormatException if checksum doesn't match.
    */
   private boolean decodeChksum () throws DataFormatException
@@ -617,12 +620,12 @@ public class Inflater
 
   /**
    * Decodes the deflated stream.
-   * @return false if more input is needed, or if finished. 
+   * @return false if more input is needed, or if finished.
    * @exception DataFormatException if deflated stream is invalid.
    */
   private boolean decode () throws DataFormatException
   {
-    switch (mode) 
+    switch (mode)
       {
       case DECODE_HEADER:
         return decodeHeader();
@@ -722,6 +725,6 @@ public class Inflater
         return false;
       default:
         throw new IllegalStateException();
-      } 
+      }
   }
 }
