@@ -10,4 +10,5 @@ appveyor AddTest -Name %1 -Framework IKVMTest -FileName built-ikvm\bin\ikvm.exe 
 del /f /q TEST_PASSING
 :end
 set ERRORLEVEL=0
+FOR /F "tokens=* delims=" %%x in (ikvmtest.txt) DO echo %%x
 del /f /q ikvmtest.txt
