@@ -173,7 +173,7 @@ final class DotNetSelectorImpl extends SelectorImpl
         return updated;
     }
 
-    private int updateSelectedKeys(ArrayList read, ArrayList write, ArrayList error)
+    private int updateSelectedKeys(ListOfObjects read, ListOfObjects write, ListOfObjects error)
     {
         updateCount++;
         int keys = processFDSet(updateCount, read, Net.POLLIN);
@@ -182,7 +182,7 @@ final class DotNetSelectorImpl extends SelectorImpl
         return keys;
     }
 
-    private int processFDSet(long updateCount, ArrayList sockets, int rOps)
+    private int processFDSet(long updateCount, ListOfObjects sockets, int rOps)
     {
         int numKeysUpdated = 0;
         for (int i = 0; i < sockets.get_Count(); i++)
