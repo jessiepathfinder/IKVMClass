@@ -157,9 +157,9 @@ final class DotNetSelectorImpl extends SelectorImpl
             }
             catch (SocketException throwaway)
             {
-                read.Clear();
-                write.Clear();
-                error.Clear();
+                read = new ListOfObjects();
+                write = new ListOfObjects();
+                error = new ListOfObjects();
             }
         }
         finally
