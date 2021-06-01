@@ -44,6 +44,7 @@ import java.nio.channels.spi.AbstractSelectableChannel;
 import java.nio.channels.spi.AbstractSelector;
 import java.nio.channels.spi.SelectorProvider;
 import java.util.Collection;
+import java.util.LinkedList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -101,9 +102,9 @@ final class DotNetSelectorImpl extends SelectorImpl
             return 0;
         }
 
-        ArrayList read = new ArrayList();
-        ArrayList write = new ArrayList();
-        ArrayList error = new ArrayList();
+        LinkedList read = new LinkedList();
+        LinkedList write = new LinkedList();
+        LinkedList error = new LinkedList();
         for (int i = 0; i < channelArray.get_Count(); i++)
         {
             SelectionKeyImpl ski = (SelectionKeyImpl)channelArray.get_Item(i);
@@ -166,7 +167,7 @@ final class DotNetSelectorImpl extends SelectorImpl
             end();
         }
         processDeregisterQueue();
-        int updated = updateSelectedKeys(read, write, error);
+        int updated = updateSelectedKeys(new ArrayList(read), new ArrayList(write), new ArrayList(error));
         // Done with poll(). Set wakeupSocket to nonsignaled  for the next run.
         resetWakeupSocket();
         return updated;
