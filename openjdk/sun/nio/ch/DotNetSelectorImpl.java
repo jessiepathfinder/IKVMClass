@@ -49,7 +49,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
-import cli.System.Collections.Generic.List;
+import cli.jessielesbian.IKVM.ListOfObjects;
 
 final class DotNetSelectorImpl extends SelectorImpl
 {
@@ -102,9 +102,9 @@ final class DotNetSelectorImpl extends SelectorImpl
             return 0;
         }
 
-        List<Object> read = new List<Object>();
-        List<Object> write = new List<Object>();
-        List<Object> error = new List<Object>();
+        ListOfObjects read = new ListOfObjects();
+        ListOfObjects write = new ListOfObjects();
+        ListOfObjects error = new ListOfObjects();
         for (int i = 0; i < channelArray.get_Count(); i++)
         {
             SelectionKeyImpl ski = (SelectionKeyImpl)channelArray.get_Item(i);
