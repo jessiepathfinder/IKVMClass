@@ -2548,7 +2548,7 @@ class Thread implements Runnable {
                 // Note that the Object.wait() specification allows for spurious wakeups, so this isn't a problem. Trying to
                 // emulate a longer wait with multiple Monitor.Wait() calls is not allowed, because that would mean that
                 // we acquire and release the synchronization lock multiple times during the wait.
-                cli.System.Threading.Monitor.Wait(o, new TimeSpan(timeout));
+                cli.System.Threading.Monitor.Wait(o, new TimeSpan(timeout / 100));
             }
         }
         catch (cli.System.Threading.ThreadInterruptedException throwaway) {
