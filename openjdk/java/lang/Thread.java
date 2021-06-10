@@ -40,6 +40,7 @@ import sun.nio.ch.Interruptible;
 import sun.reflect.CallerSensitive;
 import sun.reflect.Reflection;
 import sun.security.util.SecurityConstants;
+import cli.System.TimeSpan;
 
 
 /**
@@ -2533,10 +2534,28 @@ class Thread implements Runnable {
         if (nanos < 0 || nanos > 999999) {
             throw new IllegalArgumentException("nanosecond timeout value out of range");
         }
-        if (nanos >= 500000 || (nanos != 0 && timeout == 0)) {
-            timeout++;
+        timeout *= 1000000;
+	timeout += nanos;
+	Thread t = currentThread();
+        t.enterInterruptableWait(timeout != 0);
+        try {
+            if (false) throw new cli.System.Threading.ThreadInterruptedException();
+            if (timeout == 0) {
+                cli.System.Threading.Monitor.Wait(o);
+            }
+            else {
+                // We wait a maximum of Integer.MAX_VALUE milliseconds, because that is the maximum that Monitor.Wait will wait.
+                // Note that the Object.wait() specification allows for spurious wakeups, so this isn't a problem. Trying to
+                // emulate a longer wait with multiple Monitor.Wait() calls is not allowed, because that would mean that
+                // we acquire and release the synchronization lock multiple times during the wait.
+                cli.System.Threading.Monitor.Wait(o, new TimeSpan(timeout));
+            }
         }
-        objectWait(o, timeout);
+        catch (cli.System.Threading.ThreadInterruptedException throwaway) {
+        }
+        finally {
+            t.leaveInterruptableWait();
+        }
     }
 
     // [IKVM] this the implementation of Object.wait(long timeout). It is hooked up in map.xml.
