@@ -33,8 +33,12 @@ import java.awt.font.GlyphJustificationInfo;
 import java.awt.font.GlyphVector;
 import java.awt.font.LineMetrics;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.GeneralPath;
+import java.awt.geom.NoninvertibleTransformException;
+import java.awt.geom.PathIterator;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
+import java.lang.ref.SoftReference;
 import java.text.CharacterIterator;
 
 import ikvm.internal.NotYetImplementedError;
@@ -53,6 +57,16 @@ public class StandardGlyphVector extends GlyphVector{
 
     private Font2D font2D;
     private FontStrike strike;
+	
+	// transforms information
+    private GlyphTransformInfo gti; // information about per-glyph transforms
+
+    // !!! can we get rid of any of this extra stuff?
+    private AffineTransform ftx;   // font transform without translation
+    private AffineTransform dtx;   // device transform used for strike calculations, no translation
+    private AffineTransform invdtx; // inverse of dtx or null if dtx is identity
+    private AffineTransform frctx; // font render context transform, wish we could just share it
+    private SoftReference fsref;   // font strike reference for glyphs with no per-glyph transform
     
     
     /////////////////////////////
