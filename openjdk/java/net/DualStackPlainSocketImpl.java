@@ -26,6 +26,9 @@ package java.net;
 
 import java.io.IOException;
 import java.io.FileDescriptor;
+import static ikvm.internal.Winsock.*;
+import static java.net.net_util_md.*;
+import static ikvm.internal.JNI.*;
 
 /**
  * This class defines the plain SocketImpl that is used on Windows platforms
@@ -255,107 +258,264 @@ class DualStackPlainSocketImpl extends AbstractPlainSocketImpl
     /* Native methods */
 
     static cli.System.Net.Sockets.Socket socket0(boolean stream, boolean v6Only) throws IOException {
-        ikvm.internal.JNI.JNIEnv env = new ikvm.internal.JNI.JNIEnv();
-        cli.System.Net.Sockets.Socket ret = DualStackPlainSocketImpl_c.socket0(env, stream, v6Only);
-        env.ThrowPendingException();
-        return ret;
+        int rv, opt=0;
+
+        cli.System.Net.Sockets.Socket fd = NET_Socket(AF_INET6, (stream ? SOCK_STREAM : SOCK_DGRAM), 0);
+        if (fd == INVALID_SOCKET) {
+            throw NET_ThrowNew(WSAGetLastError(), "create");
+        }
+        if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, opt) == SOCKET_ERROR) {
+            throw NET_ThrowNew(WSAGetLastError(), "create");
+        }
+        return fd;
     }
 
-    static void bind0(cli.System.Net.Sockets.Socket fd, InetAddress localAddress, int localport,
+    static void bind0(cli.System.Net.Sockets.Socket fd, InetAddress iaObj, int port,
                              boolean exclBind)
         throws IOException {
-        ikvm.internal.JNI.JNIEnv env = new ikvm.internal.JNI.JNIEnv();
-        DualStackPlainSocketImpl_c.bind0(env, fd, localAddress, localport, exclBind);
-        env.ThrowPendingException();
+        SOCKETADDRESS sa = new SOCKETADDRESS();
+        int rv;
+
+        if (NET_InetAddressToSockaddr(iaObj, port, sa, JNI_TRUE) == 0) {
+            if (NET_WinBind(fd, sa, exclBind) == SOCKET_ERROR){
+                throw NET_ThrowNew(WSAGetLastError(), "JVM_Bind");
+            }
+        }
     }
 
-    static int connect0(cli.System.Net.Sockets.Socket fd, InetAddress remote, int remotePort)
+    static int connect0(cli.System.Net.Sockets.Socket fd, InetAddress iaObj, int port)
         throws IOException {
-        ikvm.internal.JNI.JNIEnv env = new ikvm.internal.JNI.JNIEnv();
-        int ret = DualStackPlainSocketImpl_c.connect0(env, fd, remote, remotePort);
-        env.ThrowPendingException();
-        return ret;
+        SOCKETADDRESS sa = new SOCKETADDRESS();
+
+        if (NET_InetAddressToSockaddr(iaObj, port, sa,
+                                     JNI_TRUE) != 0) {
+          return -1;
+        }
+
+        if (connect(fd, sa) == SOCKET_ERROR) {
+            int err = WSAGetLastError();
+            if (err == WSAEWOULDBLOCK) {
+                return java.net.DualStackPlainSocketImpl.WOULDBLOCK;
+            } else if (err == WSAEADDRNOTAVAIL) {
+                throw new ConnectException("connect: Address is invalid on local machine, or port is not valid on remote machine");
+            } else {
+                throw NET_ThrowNew(err, "connect");
+            }
+        }
+        return rv;
     }
 
     static void waitForConnect(cli.System.Net.Sockets.Socket fd, int timeout) throws IOException {
-        ikvm.internal.JNI.JNIEnv env = new ikvm.internal.JNI.JNIEnv();
-        DualStackPlainSocketImpl_c.waitForConnect(env, fd, timeout);
-        env.ThrowPendingException();
+        int rv, retry;
+        fd_set wr, ex;
+        wr = new fd_set(); ex = new fd_set();
+        timeval t = new timeval();
+
+        FD_ZERO(wr);
+        FD_ZERO(ex);
+        FD_SET(fd, wr);
+        FD_SET(fd, ex);
+        t.tv_sec = timeout / 1000;
+        t.tv_usec = (timeout % 1000) * 1000;
+
+        /*
+         * Wait for timeout, connection established or
+         * connection failed.
+         */
+        rv = select(null, wr, ex, t);
+
+        /*
+         * Timeout before connection is established/failed so
+         * we throw exception and shutdown input/output to prevent
+         * socket from being used.
+         * The socket should be closed immediately by the caller.
+         */
+        if (rv == 0) {
+            shutdown( fd, SD_BOTH );
+            throw new SocketTimeoutException("connect timed out");
+        }
+
+        /*
+         * Socket is writable or error occurred. On some Windows editions
+         * the socket will appear writable when the connect fails so we
+         * check for error rather than writable.
+         */
+        if (FD_ISSET(fd, ex)) {
+            for (retry=0; retry<3; retry++) {
+                int[] tmp = { 0 };
+                NET_GetSockOpt(fd, SOL_SOCKET, SO_ERROR, tmp);
+                rv = tmp[0];
+                if (rv != 0) {
+                    break;
+                }
+                Sleep(0);
+            }
+
+            if (rv == 0) {
+                throw new SocketException("Unable to establish connection");
+            } else {
+                throw NET_ThrowNew(rv, "connect");
+            }
+        }
     }
 
     static int localPort0(cli.System.Net.Sockets.Socket fd) throws IOException {
-        ikvm.internal.JNI.JNIEnv env = new ikvm.internal.JNI.JNIEnv();
-        int ret = DualStackPlainSocketImpl_c.localPort0(env, fd);
-        env.ThrowPendingException();
-        return ret;
+        SOCKETADDRESS sa;
+        sa = new SOCKETADDRESS();
+
+        if (getsockname(fd, sa) == SOCKET_ERROR) {
+            if (WSAGetLastError() == WSAENOTSOCK) {
+                throw new SocketException("Socket closed");
+            } else {
+                throw NET_ThrowNew( WSAGetLastError(), "getsockname failed");
+            }
+        } else{
+            return ntohs(GET_PORT(sa));
+        }
     }
 
-    static void localAddress(cli.System.Net.Sockets.Socket fd, InetAddressContainer in) throws SocketException {
-        ikvm.internal.JNI.JNIEnv env = new ikvm.internal.JNI.JNIEnv();
-        DualStackPlainSocketImpl_c.localAddress(env, fd, in);
-        env.ThrowPendingException();
+    static void localAddress(cli.System.Net.Sockets.Socket fd, InetAddressContainer iaContainerObj) throws SocketException {
+        int[] port = { 0 };
+        SOCKETADDRESS sa;
+        sa = new SOCKETADDRESS();
+        if (getsockname(fd, sa) == SOCKET_ERROR) {
+            throw NET_ThrowNew(WSAGetLastError(), "Error getting socket name");
+        } else{
+            InetAddress iaObj = NET_SockaddrToInetAddress(env, sa, port);
+            iaContainerObj.addr = iaObj;
+        }
     }
 
     static void listen0(cli.System.Net.Sockets.Socket fd, int backlog) throws IOException {
-        ikvm.internal.JNI.JNIEnv env = new ikvm.internal.JNI.JNIEnv();
-        DualStackPlainSocketImpl_c.listen0(env, fd, backlog);
-        env.ThrowPendingException();
+        if (listen(fd, backlog) == SOCKET_ERROR) {
+            throw NET_ThrowNew(WSAGetLastError(), "listen failed");
+        }
     }
 
     static cli.System.Net.Sockets.Socket accept0(cli.System.Net.Sockets.Socket fd, InetSocketAddress[] isaa) throws IOException {
-        ikvm.internal.JNI.JNIEnv env = new ikvm.internal.JNI.JNIEnv();
-        cli.System.Net.Sockets.Socket ret = DualStackPlainSocketImpl_c.accept0(env, fd, isaa);
-        env.ThrowPendingException();
-        return ret;
+        cli.System.Net.Sockets.Socket newfd;
+        int[] port = { 0 };
+        InetSocketAddress isa;
+        InetAddress ia;
+        SOCKETADDRESS sa;
+        sa = new SOCKETADDRESS();
+        newfd = accept(fd, sa);
+        if (newfd == INVALID_SOCKET) {
+            if (WSAGetLastError() == -2) {
+                throw new java.io.InterruptedIOException("operation interrupted");
+            } else {
+                throw new SocketException("socket closed");
+            }
+        } else{
+            ia = NET_SockaddrToInetAddress(env, sa, port);
+            isa = new InetSocketAddress(ia, port[0]);
+            isaa[0] = isa;
+            return newfd;
+        }
     }
 
     static void waitForNewConnection(cli.System.Net.Sockets.Socket fd, int timeout) throws IOException {
-        ikvm.internal.JNI.JNIEnv env = new ikvm.internal.JNI.JNIEnv();
-        DualStackPlainSocketImpl_c.waitForNewConnection(env, fd, timeout);
-        env.ThrowPendingException();
+        int rv = NET_Timeout(fd, timeout);
+        if (rv == 0) {
+            throw new SocketTimeoutException("Accept timed out");
+        } else if (rv == -1) {
+            throw new SocketException("socket closed");
+        } else if (rv == -2) {
+            throw new InterruptedIOException("operation interrupted");
+        }
     }
 
     static int available0(cli.System.Net.Sockets.Socket fd) throws IOException {
-        ikvm.internal.JNI.JNIEnv env = new ikvm.internal.JNI.JNIEnv();
-        int ret = DualStackPlainSocketImpl_c.available0(env, fd);
-        env.ThrowPendingException();
-        return ret;
+        int[] available = { -1 };
+        if ((ioctlsocket(fd, FIONREAD, available)) == SOCKET_ERROR) {
+            throw NET_ThrowNew(WSAGetLastError(), "socket available");
+        }
+        return available[0];
     }
 
     static void close0(cli.System.Net.Sockets.Socket fd) throws IOException {
-        ikvm.internal.JNI.JNIEnv env = new ikvm.internal.JNI.JNIEnv();
-        DualStackPlainSocketImpl_c.close0(env, fd);
-        env.ThrowPendingException();
+        NET_SocketClose(fd);
     }
 
     static void shutdown0(cli.System.Net.Sockets.Socket fd, int howto) throws IOException {
-        ikvm.internal.JNI.JNIEnv env = new ikvm.internal.JNI.JNIEnv();
-        DualStackPlainSocketImpl_c.shutdown0(env, fd, howto);
-        env.ThrowPendingException();
+        shutdown(fd, howto);
     }
 
-    static void setIntOption(cli.System.Net.Sockets.Socket fd, int cmd, int optionValue) throws SocketException {
-        ikvm.internal.JNI.JNIEnv env = new ikvm.internal.JNI.JNIEnv();
-        DualStackPlainSocketImpl_c.setIntOption(env, fd, cmd, optionValue);
-        env.ThrowPendingException();
+    static void setIntOption(cli.System.Net.Sockets.Socket fd, int cmd, int value) throws SocketException {
+        int[] level = { 0 };
+        int[] opt = { 0 };
+        linger linger;
+        Object optval;
+
+        if (NET_MapSocketOption(cmd, level, opt) < 0) {
+            throw new SocketException("Invalid option");
+        } else if (opt[0] == java.net.SocketOptions.SO_LINGER) {
+            linger = new linger();
+            if (value >= 0) {
+                linger.l_onoff = 1;
+                linger.l_linger = value & 0xFFFF;
+            } else {
+                linger.l_onoff = 0;
+                linger.l_linger = 0;
+            }
+            optval = linger;
+        } else {
+            optval = value;
+        }
+
+        if (NET_SetSockOpt(fd, level[0], opt[0], optval) < 0) {
+            throw NET_ThrowNew(WSAGetLastError(), "setsockopt");
+        }
     }
 
     static int getIntOption(cli.System.Net.Sockets.Socket fd, int cmd) throws SocketException {
-        ikvm.internal.JNI.JNIEnv env = new ikvm.internal.JNI.JNIEnv();
-        int ret = DualStackPlainSocketImpl_c.getIntOption(env, fd, cmd);
-        env.ThrowPendingException();
-        return ret;
+        int[] level = { 0 };
+        int[] opt = { 0 };
+        int[] result = { 0 };
+        linger linger;
+        Object optval;
+
+        if (NET_MapSocketOption(cmd, level, opt) < 0) {
+            throw new SocketException("Unsupported socket option");
+        } else if (opt[0] == java.net.SocketOptions.SO_LINGER) {
+            linger = new linger();
+            optval = linger;
+        } else {
+            linger = null;
+            optval = result;
+        }
+
+        if (NET_GetSockOpt(fd, level[0], opt[0], optval) < 0) {
+            throw NET_ThrowNew(WSAGetLastError(), "getsockopt");
+        }
+
+        if (opt[0] == java.net.SocketOptions.SO_LINGER)
+            return linger.l_onoff != 0 ? linger.l_linger : -1;
+        else
+            return result[0];
     }
 
     static void sendOOB(cli.System.Net.Sockets.Socket fd, int data) throws IOException {
-        ikvm.internal.JNI.JNIEnv env = new ikvm.internal.JNI.JNIEnv();
-        DualStackPlainSocketImpl_c.sendOOB(env, fd, data);
-        env.ThrowPendingException();
+            int n = send(fd, new byte[] { (byte)data }, 1, MSG_OOB);
+            if (n == JVM_IO_ERR) {
+                throw NET_ThrowNew(WSAGetLastError(), "send");
+            } else if (n == JVM_IO_INTR) {
+                throw new java.io.InterruptedIOException();
+            }
     }
 
     static void configureBlocking(cli.System.Net.Sockets.Socket fd, boolean blocking) throws IOException {
-        ikvm.internal.JNI.JNIEnv env = new ikvm.internal.JNI.JNIEnv();
-        DualStackPlainSocketImpl_c.configureBlocking(env, fd, blocking);
-        env.ThrowPendingException();
+        int arg;
+        int result;
+
+        if (blocking) {
+            arg = SET_BLOCKING;    // 0
+        } else {
+            arg = SET_NONBLOCKING;   // 1
+        }
+
+        if (ioctlsocket(fd, FIONBIO, arg) == SOCKET_ERROR) {
+            throw NET_ThrowNew(WSAGetLastError(), "configureBlocking");
+        }
     }
 }
