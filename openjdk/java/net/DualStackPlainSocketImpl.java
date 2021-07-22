@@ -24,11 +24,11 @@
  */
 package java.net;
 
-import java.io.IOException;
-import java.io.FileDescriptor;
+import java.io.*;
 import static ikvm.internal.Winsock.*;
 import static java.net.net_util_md.*;
 import static ikvm.internal.JNI.*;
+import static java.net.DualStackPlainSocketImpl_c.*;
 
 /**
  * This class defines the plain SocketImpl that is used on Windows platforms
