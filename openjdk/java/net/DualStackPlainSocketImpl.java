@@ -42,7 +42,11 @@ import static java.net.DualStackPlainSocketImpl_c.*;
 class DualStackPlainSocketImpl extends AbstractPlainSocketImpl
 {
 
+    private static final int JVM_IO_ERR = -1;
+    private static final int JVM_IO_INTR = -2;
 
+    private static final int SET_BLOCKING = 0;
+    private static final int SET_NONBLOCKING = 1;
     // true if this socket is exclusively bound
     private final boolean exclusiveBind;
 
