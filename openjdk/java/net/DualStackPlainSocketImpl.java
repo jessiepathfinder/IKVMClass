@@ -295,8 +295,8 @@ class DualStackPlainSocketImpl extends AbstractPlainSocketImpl
                                      JNI_TRUE) != 0) {
           return -1;
         }
-
-        if (connect(fd, sa) == SOCKET_ERROR) {
+        int rv = ikvm.internal.Winsock.connect(fd, sa);
+        if (rv == SOCKET_ERROR) {
             int err = WSAGetLastError();
             if (err == WSAEWOULDBLOCK) {
                 return java.net.DualStackPlainSocketImpl.WOULDBLOCK;
@@ -385,13 +385,13 @@ class DualStackPlainSocketImpl extends AbstractPlainSocketImpl
         if (getsockname(fd, sa) == SOCKET_ERROR) {
             throw NET_ThrowNew(WSAGetLastError(), "Error getting socket name");
         } else{
-            InetAddress iaObj = NET_SockaddrToInetAddress(env, sa, port);
+            InetAddress iaObj = NET_SockaddrToInetAddress(sa, port);
             iaContainerObj.addr = iaObj;
         }
     }
 
     static void listen0(cli.System.Net.Sockets.Socket fd, int backlog) throws IOException {
-        if (listen(fd, backlog) == SOCKET_ERROR) {
+        if (ikvm.internal.Winsock.listen(fd, backlog) == SOCKET_ERROR) {
             throw NET_ThrowNew(WSAGetLastError(), "listen failed");
         }
     }
@@ -403,7 +403,7 @@ class DualStackPlainSocketImpl extends AbstractPlainSocketImpl
         InetAddress ia;
         SOCKETADDRESS sa;
         sa = new SOCKETADDRESS();
-        newfd = accept(fd, sa);
+        newfd = ikvm.internal.Winsock.accept(fd, sa);
         if (newfd == INVALID_SOCKET) {
             if (WSAGetLastError() == -2) {
                 throw new java.io.InterruptedIOException("operation interrupted");
@@ -411,7 +411,7 @@ class DualStackPlainSocketImpl extends AbstractPlainSocketImpl
                 throw new SocketException("socket closed");
             }
         } else{
-            ia = NET_SockaddrToInetAddress(env, sa, port);
+            ia = NET_SockaddrToInetAddress(sa, port);
             isa = new InetSocketAddress(ia, port[0]);
             isaa[0] = isa;
             return newfd;
