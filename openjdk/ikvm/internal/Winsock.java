@@ -584,7 +584,7 @@ public final class Winsock
             return null;
         } else{
             cli.jessielesbian.IKVM.ListOfObjects lol = new cli.jessielesbian.IKVM.ListOfObjects();
-            Object[] objs2 = fd_set.list.ToArray();
+            Object[] objs2 = set.list.ToArray();
             int len = objs2.length;
             lol.set_Capacity(len);
             for(int i = 0; i < len; i++){
