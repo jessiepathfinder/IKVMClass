@@ -575,7 +575,7 @@ class DualStackPlainDatagramSocketImpl extends AbstractPlainDatagramSocketImpl
 			throw NET_ThrowNew(e2.get_ErrorCode(), e2.get_Message());
 		}
 		int[] retvarptr = new int[1];
-		int rv = ioctlsocket(fd, FIONREAD, retvarptr);
+		int rv = ioctlsocket(nativefd, FIONREAD, retvarptr);
 		int retval = retvarptr[0];
 		if(retval > 0){
 			return retval;
