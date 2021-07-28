@@ -1,0 +1,266 @@
+<?xml version="1.0"?>
+<!--
+  Copyright (C) 2002-2014 Jeroen Frijters
+
+  This software is provided 'as-is', without any express or implied
+  warranty.  In no event will the authors be held liable for any damages
+  arising from the use of this software.
+
+  Permission is granted to anyone to use this software for any purpose,
+  including commercial applications, and to alter it and redistribute it
+  freely, subject to the following restrictions:
+
+  1. The origin of this software must not be misrepresented; you must not
+     claim that you wrote the original software. If you use this software
+     in a product, an acknowledgment in the product documentation would be
+     appreciated but is not required.
+  2. Altered source versions must be plainly marked as such, and must not be
+     misrepresented as being the original software.
+  3. This notice may not be removed or altered from any source distribution.
+
+  Jeroen Frijters
+  jeroen@frijters.net
+  
+-->
+<project name="ClassLibrary" default="tools">
+    <include buildfile="../ikvm.include" />
+    <property name="pathsep" value=":" />
+    <property overwrite="false" name="signoption" value="" />
+    <property overwrite="false" name="SkipSystemCoreDependency" value="false" />
+    <property name="OPENJDK_VERSION" value="OpenJDK 8u45 b14" />
+    <property name="IMPLEMENTATION_VERSION" value="1.8.0" />
+    <property name="SPECIFICATION_VERSION" value="1.8" />
+    <property name="FULL_VERSION" value="1.8.0_45-b14" />
+    <property name="OpenJDK.dir" value="${project::get-base-directory()}/src" />
+    <if test="${platform::is-win32()}">
+        <property name="pathsep" value=";" />
+    </if>
+
+    <target name="version">
+        <property name="VERSION" value="${assemblyname::get-version(assemblyname::get-assembly-name(path::combine(project::get-base-directory(), '../bin/IKVM.Runtime.dll')))}" />
+    </target>
+    
+    <target name="vfs">
+        <!-- VFS had been moved to runtime.build! -->
+    </target>
+
+    <target name="resources">
+        <!-- collect the resources in a zip to make it easier to include them in the right assemblies -->
+        <!--
+        <zip zipfile="resources.zip">
+            <fileset basedir="${OpenJDK.dir}/build/linux-x86_64-normal-server-release/jdk/classes">
+                <include name="com/sun/corba/se/impl/orbutil/resources/*.properties" />
+                <include name="com/sun/rowset/*.properties" />
+                <include name="javax/swing/text/html/parser/html32.bdtd" />
+                <include name="sun/rmi/registry/resources/*.properties" />
+                <include name="sun/rmi/server/resources/*.properties" />
+                <include name="sun/text/resources/*IteratorData" />
+                <include name="sun/text/resources/th/*IteratorData_th" />
+                <include name="sun/text/resources/th/thai_dict" />
+            </fileset>
+            <fileset basedir="${OpenJDK.dir}/corba/src/share/classes">
+                <include name="**/*.properties" />
+            </fileset>
+            <fileset basedir="${OpenJDK.dir}/jdk/src/share/classes">
+                <include name="**/*.properties" />
+                <include name="**/*.gif" />
+                <include name="**/*.png" />
+                <include name="**/*.wav" />
+                <include name="com/sun/org/apache/xml/internal/security/resource/config.*" />
+                <include name="com/sun/swing/internal/plaf/**/*" />
+                <include name="javax/swing/text/html/default.css" />
+                <include name="javax/swing/text/rtf/charsets/*.txt" />
+                <include name="sun/text/resources/**/*.icu" />
+            </fileset>
+            <fileset basedir="${OpenJDK.dir}/jaxp/src">
+                <include name="**/*.properties" />
+                <include name="**/*.res" />
+            </fileset>
+            <fileset basedir="${OpenJDK.dir}/jaxws/src/share/jaf_classes">
+                <include name="**/*.properties" />
+            </fileset>
+            <fileset basedir="${OpenJDK.dir}/jaxws/src/share/jaxws_classes">
+                <include name="**/*.properties" />
+                <include name="**/*.xml" />
+            </fileset>
+        </zip>
+        -->
+    </target>
+
+    <target name="MANIFEST.MF">
+        <copy file="MANIFEST.MF.in" tofile="MANIFEST.MF" outputencoding="ascii" overwrite="true">
+            <filterchain>
+                <replacetokens>
+                    <token key="IMPLEMENTATION_VERSION" value="${IMPLEMENTATION_VERSION}" />
+                    <token key="SPECIFICATION_VERSION" value="${SPECIFICATION_VERSION}" />
+                </replacetokens>
+            </filterchain>
+        </copy>
+        <!-- copy the timestamp from the input file, because the timestamp ends up in resources.jar and affects deterministics builds -->
+        <touch file="MANIFEST.MF" datetime="${file::get-last-write-time('MANIFEST.MF.in')}" />
+    </target>
+
+    <target name="nashorn-version">
+        <copy file="resources/nashorn/version.properties.in" tofile="resources/nashorn/version.properties" outputencoding="ascii" overwrite="true">
+            <filterchain>
+                <replacetokens>
+                    <token key="FULL_VERSION" value="${FULL_VERSION}" />
+                    <token key="IMPLEMENTATION_VERSION" value="${IMPLEMENTATION_VERSION}" />
+                </replacetokens>
+            </filterchain>
+        </copy>
+        <!-- copy the timestamp from the input file, because the timestamp ends up in resources.jar and affects deterministics builds -->
+        <touch file="resources/nashorn/version.properties" datetime="${file::get-last-write-time('resources/nashorn/version.properties.in')}" />
+    </target>
+    
+    <target name="core" depends="vfs resources version MANIFEST.MF nashorn-version">
+        <copy file="../bin/IKVM.Runtime.dll" todir="." />
+        <copy file="../bin/IKVM.AWT.WinForms.dll" todir="." />
+        <exec program="${project::get-base-directory()}/../bin/ikvmc.exe" useruntimeengine="true">
+        	<arg value="-assemblyattributes:commonAttributes.class"/>
+            <arg value="-version:${VERSION}" />
+            <arg value="${signoption}" />
+            <arg value="-strictfinalfieldsemantics" />
+            <arg value="-target:library" />
+            <arg value="-sharedclassloader"/>
+            <arg value="-r:mscorlib.dll" />
+            <arg value="-r:System.dll" />
+            <arg value="-r:System.Core.dll" unless="${SkipSystemCoreDependency}" />
+            <arg value="-r:System.Xml.dll" />
+            <arg value="-r:IKVM.Runtime.dll" />
+            <!-- we already know that the JNI assembly is not available, so suppress the warning -->
+            <arg value="-nowarn:110" />
+            <arg value="-w4" />
+            <arg value="-warnaserror" />
+            <!-- WARNING: REMOVE BEFORE STABLE RELEASE -->
+            <arg value="-nojni" />
+            <!-- we need optimizations since Jessie Lesbian had waiting difficulties. -->
+            <arg value="-extremeoptimize" />
+            <arg value="-preoptimize" />
+            <arg value="-removeassertions" />
+            <arg value="-compressresources" />
+            <arg value="-opt:fields" />
+            <arg value="-static"/>
+            <arg value="-noparameterreflection" />
+            <arg value="-nostacktraceinfo"/>
+            <arg value="-filealign:4096"/>
+            <arg value="-noautoserialization"/>
+            <arg value="@response.txt" />
+        </exec>
+        <if test="${property::exists('peverify')}">
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.Beans.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.Charsets.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.Corba.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.Core.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.Cldrdata.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.Jdbc.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.Localedata.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.Management.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.Media.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.Misc.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.Naming.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.Nashorn.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.Remoting.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.Security.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.SwingAWT.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.Text.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.Util.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.XML.API.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.XML.Bind.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.XML.Crypto.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.XML.Parse.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.XML.Transform.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.XML.WebServices.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.XML.XPath.dll" />
+            <exec program="${peverify}" commandline="-nologo IKVM.OpenJDK.Tools.dll" />
+        </if>
+        <copy todir="../bin">
+            <fileset basedir=".">
+                <include name="IKVM.OpenJDK.*.dll" />
+            </fileset>
+        </copy>
+        <!-- make sure that we haven't accidentally introduced new dependencies -->
+    </target>
+
+    <target name="tools" depends="core">
+    <!-- OpenJDK.NET: The OpenJDK port for Microsoft.NET made by Jessie Lesbian -->
+        <exec program="${project::get-base-directory()}/../bin/ikvmc.exe" useruntimeengine="true">
+            <arg value="-version:${VERSION}" />
+            <arg value="-apartment:none"/>
+            <arg value="-out:../bin/javac.exe" />
+            <arg value="-main:com.sun.tools.javac.Main" /> <!-- FIXED javac not working -->
+            <arg value="-r:../bin/IKVM.OpenJDK.Core.dll" />
+        </exec>
+        <exec program="${project::get-base-directory()}/../bin/ikvmc.exe" useruntimeengine="true">
+            <arg value="-version:${VERSION}" />
+            <arg value="-apartment:none"/>
+            <arg value="-out:../bin/javah.exe" />
+            <arg value="-main:com.sun.tools.javah.Main" />
+            <arg value="-r:../bin/IKVM.OpenJDK.Core.dll" />
+        </exec>
+        <exec program="${project::get-base-directory()}/../bin/ikvmc.exe" useruntimeengine="true">
+            <arg value="-version:${VERSION}" />
+            <arg value="-apartment:none"/>
+            <arg value="-out:../bin/javap.exe" />
+            <arg value="-main:com.sun.tools.javap.Main" />
+            <arg value="-r:../bin/IKVM.OpenJDK.Core.dll" />
+        </exec>
+        <exec program="${project::get-base-directory()}/../bin/ikvmc.exe" useruntimeengine="true">
+            <arg value="-version:${VERSION}" />
+            <arg value="-apartment:none"/>
+            <arg value="-out:../bin/jar.exe" />
+            <arg value="-main:sun.tools.jar.Main" />
+            <arg value="-r:../bin/IKVM.OpenJDK.Core.dll" />
+        </exec>
+        <exec program="${project::get-base-directory()}/../bin/ikvmc.exe" useruntimeengine="true">
+            <arg value="-version:${VERSION}" />
+            <arg value="-apartment:none"/>
+            <arg value="-out:../bin/native2ascii.exe" />
+            <arg value="-main:sun.tools.native2ascii.Main" />
+            <arg value="-r:../bin/IKVM.OpenJDK.Core.dll" />
+        </exec>
+        <exec program="${project::get-base-directory()}/../bin/ikvmc.exe" useruntimeengine="true">
+            <arg value="-version:${VERSION}" />
+            <arg value="-apartment:none"/>
+            <arg value="-out:../bin/rmic.exe" />
+            <arg value="-main:sun.rmi.rmic.Main" />
+            <arg value="-r:../bin/IKVM.OpenJDK.Core.dll" />
+        </exec>
+        <exec program="${project::get-base-directory()}/../bin/ikvmc.exe" useruntimeengine="true">
+            <arg value="-version:${VERSION}" />
+            <arg value="-apartment:none"/>
+            <arg value="-out:../bin/newrmic.exe" />
+            <arg value="-main:sun.rmi.rmic.newrmic.Main" />
+            <arg value="-r:../bin/IKVM.OpenJDK.Core.dll" />
+        </exec>
+		<!-- new OpenJDK.NET v2.0 Tools -->
+		<exec program="${project::get-base-directory()}/../bin/ikvmc.exe" useruntimeengine="true">
+            <arg value="-version:${VERSION}" />
+            <arg value="-apartment:none"/>
+            <arg value="-out:../bin/javadoc.exe" />
+            <arg value="-main:com.sun.tools.javadoc.Main" />
+            <arg value="-r:../bin/IKVM.OpenJDK.Core.dll" />
+        </exec>
+		<exec program="${project::get-base-directory()}/../bin/ikvmc.exe" useruntimeengine="true">
+            <arg value="-version:${VERSION}" />
+            <arg value="-apartment:none"/>
+            <arg value="-out:../bin/extcheck.exe" />
+            <arg value="-main:com.sun.tools.extcheck.Main" />
+            <arg value="-r:../bin/IKVM.OpenJDK.Core.dll" />
+        </exec>
+		<exec program="${project::get-base-directory()}/../bin/ikvmc.exe" useruntimeengine="true">
+            <arg value="-version:${VERSION}" />
+            <arg value="-apartment:none"/>
+            <arg value="-out:../bin/hat.exe" />
+            <arg value="-main:com.sun.tools.hat.Main" />
+            <arg value="-r:../bin/IKVM.OpenJDK.Core.dll" />
+        </exec>
+		<exec program="${project::get-base-directory()}/../bin/ikvmc.exe" useruntimeengine="true">
+            <arg value="-version:${VERSION}" />
+            <arg value="-apartment:none"/>
+            <arg value="-out:../bin/jdeps.exe" />
+            <arg value="-main:com.sun.tools.jdeps.Main" />
+            <arg value="-r:../bin/IKVM.OpenJDK.Core.dll" />
+        </exec>
+    </target>
+</project>
