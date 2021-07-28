@@ -5,7 +5,7 @@ build_script:
  - ren IKVM.OpenJDK.Sourcepath.zip IKVM.OpenJDK.Sourcepath.jar
  - cd ..\
  - nant\nant.exe
- - 7z a -mm=Deflate -mmt=on -mx=9 ..\ikvm-test-build.zip .\bin\*
+ - 7z a -mm=Deflate -mmt=on -mx=9 ikvm-test-build.zip .\bin\*
 test_script:
  - appveyor DownloadFile https://altushost-swe.dl.sourceforge.net/project/dacapobench/9.12-bach-MR1/dacapo-9.12-MR1-bach.jar
  - ikvmtest.bat avrora
