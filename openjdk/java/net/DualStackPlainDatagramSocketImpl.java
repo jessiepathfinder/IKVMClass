@@ -566,20 +566,31 @@ class DualStackPlainDatagramSocketImpl extends AbstractPlainDatagramSocketImpl
 	
 	@Override int dataAvailable(){
 		//A pretty bad implementation
-		int peek = 0;
 		synchronized(anticlosinglock){
-			if (connectedAddress == null) {
-				
-			} else if (isClosed()) {
-				
-			} else{
+			cli.System.Net.Sockets.Socket myfuckingstupidsocket = checkAndReturnNativeFD();
+			int peek = -1;
+			if (myfuckingstupidsocket != null){
 				try{
-					peek = peek(connectedAddress);
-				} catch (Throwable fuckingThrowable){
+					peek = myfuckingstupidsocket.get_Available();
+				} catch (Throwable shit){
 					
 				}
-				if(peek != -1){
-					peek = 1;
+			}
+			//FUCK that stupid peek method!
+			if (peek == -1){
+				if (connectedAddress == null) {
+					
+				} else if (isClosed()) {
+					
+				} else{
+					try{
+						peek = peek(connectedAddress);
+					} catch (Throwable fuckingThrowable){
+						
+					}
+					if(peek != -1){
+						peek = 1;
+					}
 				}
 			}
 		}
