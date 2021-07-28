@@ -1743,7 +1743,7 @@ class TwoStacksPlainDatagramSocketImpl extends AbstractPlainDatagramSocketImpl
 		int rv1 = -1;
 		int[] retptr = new int[1];
 		retptr[0] = 0;
-		if (fd != null) {	
+		if (fd != null) {
 			rv = ioctlsocket(fd, FIONREAD, retptr);
 			int retval = retptr[0];
 			if (retval > 0) {
@@ -1751,13 +1751,17 @@ class TwoStacksPlainDatagramSocketImpl extends AbstractPlainDatagramSocketImpl
 			}
 		}
 		retptr[0] = 0;
-		if (fd1 != null) {	
+		if (fd1 != null) {
 			rv1 = ioctlsocket(fd1, FIONREAD, retptr);
 			int retval = retptr[0];
 			if (retval > 0) {
 				return retval;
 			}
 		}
-		
+		if (rv < 0 && rv1 < 0) {
+			throw new SocketException("Socket Closed");
+		} else{
+			return 0;
+		}
 	}
 }
