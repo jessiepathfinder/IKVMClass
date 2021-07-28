@@ -142,7 +142,6 @@
             <arg value="-opt:fields" />
             <arg value="-static"/>
             <arg value="-noparameterreflection" />
-            <arg value="-nostacktraceinfo"/>
             <arg value="-filealign:4096"/>
             <arg value="-noautoserialization"/>
             <arg value="@response.txt" />
