@@ -563,39 +563,26 @@ class DualStackPlainDatagramSocketImpl extends AbstractPlainDatagramSocketImpl
 
 		return result[0];
 	}
-	
+	//Hopefully
 	@Override int dataAvailable() throws SocketException{
-		//A pretty bad implementation
-		int peek = -1;
-		synchronized(anticlosinglock){
-			try{
-				peek = checkAndReturnNativeFD().get_Available();
-				if(false){
-					throw new cli.System.Net.Sockets.SocketException();
-				}
-			} catch (cli.System.Net.Sockets.SocketException e2){
-				throw NET_ThrowNew(e2.get_ErrorCode(), e2.get_Message());
-			} catch (Throwable shit){
-				throw new SocketException("seek");
+		cli.System.Net.Sockets.Socket nativefd;
+		try{
+			nativefd = checkAndReturnNativeFD();
+			if(false){
+				throw new cli.System.Net.Sockets.SocketException();
 			}
-			//FUCK that stupid peek method!
-			if (peek == -1){
-				if (connectedAddress == null) {
-					
-				} else if (isClosed()) {
-					
-				} else{
-					try{
-						peek = peek(connectedAddress);
-					} catch (Throwable fuckingThrowable){
-						
-					}
-					if(peek != -1){
-						peek = 1;
-					}
-				}
-			}
+		} catch(cli.System.Net.Sockets.SocketException e2){
+			throw NET_ThrowNew(e2.get_ErrorCode(), e2.get_Message());
 		}
-		return peek;
+		int[] retvarptr = new int[1];
+		int rv = ioctlsocket(fd, FIONREAD, retvarptr);
+		int retval = retvarptr[0];
+		if(retval > 0){
+			return retval;
+		} else if(rv < 0){
+			throw new SocketException("Socket closed");
+		} else{
+			return 0;
+		}
 	}
 }
