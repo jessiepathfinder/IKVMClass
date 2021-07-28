@@ -554,7 +554,7 @@ public final class Winsock
 
     public static final class fd_set
     {
-        cli.System.Collections.ArrayList list = new cli.System.Collections.ArrayList();
+        cli.jessielesbian.IKVM.ListOfObjects list = new cli.jessielesbian.IKVM.ListOfObjects();
     }
 
     public static final class timeval
@@ -578,9 +578,9 @@ public final class Winsock
         return set.list.Contains(socket);
     }
 
-    private static cli.System.Collections.ArrayList copy(fd_set set)
+    private static cli.jessielesbian.IKVM.ListOfObjects copy(fd_set set)
     {
-        return set == null ? null : (cli.System.Collections.ArrayList)set.list.Clone();
+        return set == null ? null : (cli.jessielesbian.IKVM.ListOfObjects)set.list.Clone();
     }
 
     public static int select(fd_set readfds, fd_set writefds, fd_set exceptfds, timeval timeout)
@@ -605,9 +605,9 @@ public final class Winsock
             if (false) throw new cli.System.ObjectDisposedException("");
             for (; ; )
             {
-                cli.System.Collections.ArrayList checkRead = copy(readfds);
-                cli.System.Collections.ArrayList checkWrite = copy(writefds);
-                cli.System.Collections.ArrayList checkError = copy(exceptfds);
+                cli.jessielesbian.IKVM.ListOfObjects checkRead = copy(readfds);
+                cli.jessielesbian.IKVM.ListOfObjects checkWrite = copy(writefds);
+                cli.jessielesbian.IKVM.ListOfObjects checkError = copy(exceptfds);
                 int microSeconds = (int)Math.min(Integer.MAX_VALUE, (expiration - current) / 10);
                 cli.System.Net.Sockets.Socket.Select(checkRead, checkWrite, checkError, microSeconds);
                 int count = 0;
