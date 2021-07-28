@@ -566,9 +566,9 @@ class DualStackPlainDatagramSocketImpl extends AbstractPlainDatagramSocketImpl
 	
 	@Override int dataAvailable(){
 		//A pretty bad implementation
+		int peek = -1;
 		synchronized(anticlosinglock){
 			cli.System.Net.Sockets.Socket myfuckingstupidsocket = checkAndReturnNativeFD();
-			int peek = -1;
 			if (myfuckingstupidsocket != null){
 				try{
 					peek = myfuckingstupidsocket.get_Available();
