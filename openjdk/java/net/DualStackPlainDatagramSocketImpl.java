@@ -570,6 +570,9 @@ class DualStackPlainDatagramSocketImpl extends AbstractPlainDatagramSocketImpl
 		synchronized(anticlosinglock){
 			try{
 				peek = checkAndReturnNativeFD().get_Available();
+				if(false){
+					throw new cli.System.Net.Sockets.SocketException();
+				}
 			} catch (cli.System.Net.Sockets.SocketException e2){
 				throw NET_ThrowNew(e2.get_ErrorCode(), e2.get_Message());
 			} catch (Throwable shit){
