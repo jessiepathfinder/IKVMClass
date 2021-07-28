@@ -580,7 +580,19 @@ public final class Winsock
 
     private static cli.jessielesbian.IKVM.ListOfObjects copy(fd_set set)
     {
-        return set == null ? null : (cli.jessielesbian.IKVM.ListOfObjects)set.list.Clone();
+        if (set == null){
+            return null;
+        } else{
+            cli.jessielesbian.IKVM.ListOfObjects lol = new cli.jessielesbian.IKVM.ListOfObjects();
+            Object[] objs2 = fd_set.list.ToArray();
+            int len = objs2.length;
+            lol.set_Capacity(len);
+            for(int i = 0; i < len; i++){
+                lol.Add(objs2[i]);
+            }
+            return lol;
+        }
+      
     }
 
     public static int select(fd_set readfds, fd_set writefds, fd_set exceptfds, timeval timeout)
