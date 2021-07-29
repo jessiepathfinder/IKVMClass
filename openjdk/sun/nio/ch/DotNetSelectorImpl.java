@@ -50,6 +50,9 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 import cli.jessielesbian.IKVM.ListOfObjects;
+import static ikvm.internal.JNI.*;
+import static ikvm.internal.Winsock.*;
+import static java.net.net_util_md.*;
 
 final class DotNetSelectorImpl extends SelectorImpl
 {
@@ -90,7 +93,7 @@ final class DotNetSelectorImpl extends SelectorImpl
         (sink.sc).socket().setTcpNoDelay(true);
         wakeupSinkFd = ((SelChImpl)sink).getFD().getSocket();
     }
-	
+    
     protected int doSelect(long timeout) throws IOException
     {
         if (channelArray == null)
@@ -139,17 +142,17 @@ final class DotNetSelectorImpl extends SelectorImpl
         {
             begin();
             int microSeconds;
-			if(timeout < 0 || timeout > Integer.MAX_VALUE || MinecraftMode.Enabled){
-				//bugfix
-				microSeconds = Integer.MAX_VALUE;
-			} else{
-				microSeconds = (int)(1000L * timeout);
-				if((long) microSeconds != 1000L * timeout){
-					//Value overflow!
-					microSeconds = Integer.MAX_VALUE;
-				}
-			}
-			
+            if(timeout < 0 || timeout > Integer.MAX_VALUE || MinecraftMode.Enabled){
+                //bugfix
+                microSeconds = Integer.MAX_VALUE;
+            } else{
+                microSeconds = (int)(1000L * timeout);
+                if((long) microSeconds != 1000L * timeout){
+                    //Value overflow!
+                    microSeconds = Integer.MAX_VALUE;
+                }
+            }
+            
             try
             {
                 if (false) throw new SocketException();
@@ -318,18 +321,24 @@ final class DotNetSelectorImpl extends SelectorImpl
     private void resetWakeupSocket() {
         synchronized (interruptLock)
         {
-            if (interruptTriggered == false)
-                return;
-            resetWakeupSocket0(wakeupSourceFd);
-            interruptTriggered = false;
-        }
-    }
-
-    private static void resetWakeupSocket0(Socket wakeupSourceFd)
-    {
-        while (wakeupSourceFd.get_Available() > 0)
-        {
-            wakeupSourceFd.Receive(new byte[1]);
+            if (interruptTriggered){
+                byte[] bytes = new byte[16];
+                long[] bytesToReadptr = new long[1];
+                /* Drain socket */
+                /* Find out how many bytes available for read */
+                ioctlsocket (wakeupSourceFd, FIONREAD, bytesToReadptr);
+                long bytesToRead = bytesToReadptr[0];
+                if (bytesToRead != 0) {
+                    /* Prepare corresponding buffer if needed, and then read */
+                    if (bytesToRead > 16) {
+                        byte[] buf = new byte[bytesToRead];
+                        recv(wakeupSourceFd, buf, bytesToRead, 0);
+                    } else {
+                        recv(wakeupSourceFd, bytes, 16, 0);
+                    }
+                }
+                interruptTriggered = false;
+            }
         }
     }
 }
