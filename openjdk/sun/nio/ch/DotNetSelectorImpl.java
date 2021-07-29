@@ -52,7 +52,6 @@ import java.util.Set;
 import cli.jessielesbian.IKVM.ListOfObjects;
 import static ikvm.internal.JNI.*;
 import static ikvm.internal.Winsock.*;
-import static java.net.net_util_md.*;
 
 final class DotNetSelectorImpl extends SelectorImpl
 {
@@ -321,7 +320,6 @@ final class DotNetSelectorImpl extends SelectorImpl
     private void resetWakeupSocket() {
         synchronized (interruptLock)
         {
-			
             if (interruptTriggered){
                 byte[] bytes = new byte[16];
                 int[] bytesToReadptr = new int[1];
