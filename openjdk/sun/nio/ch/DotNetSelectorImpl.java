@@ -323,11 +323,11 @@ final class DotNetSelectorImpl extends SelectorImpl
         {
             if (interruptTriggered){
                 byte[] bytes = new byte[16];
-                long[] bytesToReadptr = new long[1];
+                int[] bytesToReadptr = new int[1];
                 /* Drain socket */
                 /* Find out how many bytes available for read */
                 ioctlsocket (wakeupSourceFd, FIONREAD, bytesToReadptr);
-                long bytesToRead = bytesToReadptr[0];
+                int bytesToRead = bytesToReadptr[0];
                 if (bytesToRead != 0) {
                     /* Prepare corresponding buffer if needed, and then read */
                     if (bytesToRead > 16) {
