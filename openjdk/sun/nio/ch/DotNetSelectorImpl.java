@@ -321,6 +321,7 @@ final class DotNetSelectorImpl extends SelectorImpl
     private void resetWakeupSocket() {
         synchronized (interruptLock)
         {
+			
             if (interruptTriggered){
                 byte[] bytes = new byte[16];
                 int[] bytesToReadptr = new int[1];
