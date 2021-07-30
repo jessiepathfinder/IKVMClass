@@ -31,7 +31,7 @@ import cli.System.Net.IPEndPoint;
 import static ikvm.internal.JNI.*;
 import static ikvm.internal.Winsock.*;
 
-final class net_util_md
+public final class net_util_md
 {
     private net_util_md() { }
 
@@ -121,7 +121,7 @@ final class net_util_md
      * Since winsock doesn't have the equivalent of strerror(errno)
      * use table to lookup error text for the error.
      */
-    static SocketException NET_ThrowNew(int errorNum, String msg)
+    public static SocketException NET_ThrowNew(int errorNum, String msg)
     {
         int i;
         int table_size = winsock_errors.length;
@@ -652,7 +652,7 @@ final class net_util_md
     static int NET_InetAddressToSockaddr(JNIEnv env, InetAddress iaObj, int port, SOCKETADDRESS him, boolean v4MappedAddress) {
         return NET_InetAddressToSockaddr(iaObj, port, him, v4MappedAddress);
     }
-	static int NET_InetAddressToSockaddr(InetAddress iaObj, int port, SOCKETADDRESS him, boolean v4MappedAddress) {
+	public static int NET_InetAddressToSockaddr(InetAddress iaObj, int port, SOCKETADDRESS him, boolean v4MappedAddress) {
         if (iaObj.holder().family == InetAddress.IPv4) {
             him.set(new IPEndPoint(new IPAddress(htonl(iaObj.holder().address) & 0xFFFFFFFFL), port));
             return 0;
@@ -669,7 +669,7 @@ final class net_util_md
         }
     }
 
-    static int NET_GetPortFromSockaddr(SOCKETADDRESS him) {
+    public static int NET_GetPortFromSockaddr(SOCKETADDRESS him) {
         return ntohs(GET_PORT(him));
     }
 
@@ -732,7 +732,7 @@ final class net_util_md
         return b == 0;
     }
 
-    static boolean NET_SockaddrEqualsInetAddress(SOCKETADDRESS him, InetAddress iaObj) {
+    public static boolean NET_SockaddrEqualsInetAddress(SOCKETADDRESS him, InetAddress iaObj) {
         int family = iaObj.holder().family == InetAddress.IPv4 ? AF_INET : AF_INET6;
 
         if (him.sa_family == AF_INET6) {
@@ -780,11 +780,11 @@ final class net_util_md
         }
     }
 
-    static InetAddress NET_SockaddrToInetAddress(JNIEnv env, SOCKETADDRESS him, int[] port) {
+    public static InetAddress NET_SockaddrToInetAddress(JNIEnv env, SOCKETADDRESS him, int[] port) {
         return NET_SockaddrToInetAddress(him, port);
     }
 
-    static InetAddress NET_SockaddrToInetAddress(SOCKETADDRESS him, int[] port) {
+    public static InetAddress NET_SockaddrToInetAddress(SOCKETADDRESS him, int[] port) {
         InetAddress iaObj;
         if (him.sa_family == AF_INET6) {
             byte[] caddr = him.him6.sin6_addr;
@@ -818,7 +818,7 @@ final class net_util_md
         return (address.s6_bytes()[0] & 0xff) == 0xff;
     }
 
-    static final class SOCKETADDRESS implements IIPEndPointWrapper {
+    public static final class SOCKETADDRESS implements IIPEndPointWrapper {
         final SOCKETADDRESS him = this;
         final SOCKETADDRESS him4 = this;
         final SOCKETADDRESS him6 = this;

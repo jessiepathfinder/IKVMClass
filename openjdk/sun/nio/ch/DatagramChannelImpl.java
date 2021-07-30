@@ -34,6 +34,9 @@ import java.nio.channels.spi.*;
 import java.util.*;
 import sun.net.ResourceManager;
 import sun.net.ExtendedOptionsImpl;
+import static ikvm.internal.JNI.*;
+import static ikvm.internal.Winsock.*;
+import static java.net.net_util_md.*;
 
 /**
  * An implementation of DatagramChannels.
@@ -1122,22 +1125,136 @@ class DatagramChannelImpl
 
     // -- Native methods --
 
-    private static native void initIDs();
+    private static void disconnect0(FileDescriptor fd1, boolean isIPv6) throws IOException{
+        cli.System.Net.Sockets.Socket fd = fd1.getSocket();
+        SOCKETADDRESS sa = new SOCKETADDRESS();
+        int rv = ikvm.internal.Winsock.connect(fd, sa);
+        if (rv == SOCKET_ERROR) {
+			throw NET_ThrowNew(WSAGetLastError(), "connect");
+		} else{
+            WSAIoctl(fd, SIO_UDP_CONNRESET, true);
+        }
+    }
 
-    private static native void disconnect0(FileDescriptor fd, boolean isIPv6)
-        throws IOException;
+    static boolean purgeOutstandingICMP(cli.System.Net.Sockets.Socket fd)
+	{
+		boolean got_icmp = false;
+		byte[] buf = new byte[1];
+		fd_set tbl = new fd_set();
+		timeval t = new timeval();
+		SOCKETADDRESS rmtaddr = null;
 
-    private native int receive0(FileDescriptor fd, byte[] buf, int pos, int len,
-                                boolean connected)
-        throws IOException;
+		/*
+		 * Peek at the queue to see if there is an ICMP port unreachable. If there
+		 * is then receive it.
+		 */
+		FD_ZERO(tbl);
+		FD_SET(fd, tbl);
+		while(true) {
+			if (select(tbl, null, null, t) <= 0) {
+				break;
+			}
+			if (recvfrom(fd, buf, 1, MSG_PEEK,
+							 rmtaddr) != JVM_IO_ERR) {
+				break;
+			}
+			if (WSAGetLastError() != WSAECONNRESET) {
+				/* some other error - we don't care here */
+				break;
+			}
 
-    private native int send0(boolean preferIPv6, FileDescriptor fd, byte[] buf, int pos,
-                             int len, InetAddress addr, int port)
-        throws IOException;
+			recvfrom(fd, buf, 1, 0, rmtaddr);
+			got_icmp = JNI_TRUE;
+		}
+
+		return got_icmp;
+	}
+    static final int JVM_IO_ERR = -1;
+    static final int JVM_IO_INTR = -2;
+    private int receive0(FileDescriptor fd0, byte[] buf, int pos, int len, boolean connected) throws IOException{
+        cli.System.Net.Sockets.Socket fd = fd0.getSocket();
+        SOCKETADDRESS sa = new SOCKETADDRESS();
+        boolean retry = true;
+        int n = SOCKET_ERROR;
+        InetAddress senderAddr;
+        while (retry){
+            retry = false;
+            n = recvfrom(fd, buf, len, 0, sa);
+
+            if (n == SOCKET_ERROR) {
+                int theErr = WSAGetLastError();
+                if (theErr == WSAEMSGSIZE) {
+                    /* Spec says the rest of the data will be discarded... */
+                    n = len;
+                } else if (theErr == WSAECONNRESET) {
+                    purgeOutstandingICMP(fd);
+                    if (connected) {
+                        throw new java.net.PortUnreachableException();
+                    } else {
+                        retry = true;
+                    }
+                } else if (theErr == WSAEWOULDBLOCK) {
+                    return IOStatus.UNAVAILABLE;
+                } else {
+                    throw NET_ThrowNew(theErr, "Socket receive failed to fucking work!");
+                }
+            }
+        }
+        /*
+        * If the source address and port match the cached address
+        * and port in DatagramChannelImpl then we don't need to
+        * create InetAddress and InetSocketAddress objects.
+        */
+        senderAddr = cachedSenderInetAddress;
+        if (senderAddr != null) {
+            if (!NET_SockaddrEqualsInetAddress(sa, senderAddr)) {
+                senderAddr = null;
+            } else {
+                int port = cachedSenderPort;
+                if (port != NET_GetPortFromSockaddr(sa)) {
+                    senderAddr = null;
+                }
+            }
+        }
+        if (senderAddr == null) {
+            
+            int[] portptr = new int[1];
+            InetAddress ia = NET_SockaddrToInetAddress(sa, portptr);
+            int port = portptr[0];
+            InetSocketAddress isa = new InetSocketAddress(ia, port);
+            if(isa == null){
+                return IOStatus.THROWN;
+            } else{
+                // update cachedSenderInetAddress/cachedSenderPort
+                cachedSenderInetAddress = ia;
+                cachedSenderPort = NET_GetPortFromSockaddr(sa);
+                sender = isa;
+            }
+        }
+        return n;
+    }
+
+    private int send0(boolean preferIPv6, FileDescriptor fdo, byte[] buf, int pos, int len, InetAddress addr, int port) throws IOException{
+        cli.System.Net.Sockets.Socket fd = fdo.getSocket();
+        SOCKETADDRESS sa = new SOCKETADDRESS();
+        if (NET_InetAddressToSockaddr(addr, port, sa, preferIPv6) != 0) {
+            return IOStatus.THROWN;
+        }
+
+        int rv = sendto(fd, buf, len, 0, 0, sa);
+        if (rv == SOCKET_ERROR) {
+            int theErr = WSAGetLastError();
+            if (theErr == WSAEWOULDBLOCK) {
+                return IOStatus.UNAVAILABLE;
+            } else{
+                throw NET_ThrowNew(theErr, "Socket receive failed to fucking work!");
+            }
+        }
+        return rv;
+    }
 
     static {
         IOUtil.load();
-        initIDs();
     }
 
 }
