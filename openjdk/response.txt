@@ -825,6 +825,10 @@ src/jdk/src/share/classes/sun/text/resources/*.class
 src/jdk/src/share/classes/sun/text/resources/en/*.class
 }
 {
+-out:IKVM.OpenJDK.Security.BouncyCastle.dll
+bcprov-ext-jdk15on-168.jar
+}
+{
 -out:IKVM.OpenJDK.Security.dll
 -remap:security.xml
 -resource:javax/crypto/Cipher.class=src/jdk/src/share/classes/javax/crypto/Cipher.class

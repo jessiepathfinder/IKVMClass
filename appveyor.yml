@@ -1,6 +1,6 @@
 build_script:
  - cd openjdk
- - ..\bootstrap-ikvm\javac.exe -g -sourcepath sourcepath282 -bootclasspath ..\ikvmstubs.jar @allsources.lst
+ - ..\bootstrap-ikvm\javac.exe -g:none -sourcepath sourcepath282 -bootclasspath ..\ikvmstubs.jar @allsources.lst
  - 7z a -mm=Deflate -mmt=on -mx=9 IKVM.OpenJDK.Sourcepath.zip .\sourcepath282\*
  - ren IKVM.OpenJDK.Sourcepath.zip IKVM.OpenJDK.Sourcepath.jar
  - cd ..\
