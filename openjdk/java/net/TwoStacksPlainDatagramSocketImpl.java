@@ -1735,25 +1735,33 @@ class TwoStacksPlainDatagramSocketImpl extends AbstractPlainDatagramSocketImpl
 		}
     }
 	
-	@Override int dataAvailable(){
-		//A pretty bad implementation
-		int peek = 0;
-		synchronized(anticlosinglock){
-			if (connectedAddress == null) {
-				
-			} else if (isClosed()) {
-				
-			} else{
-				try{
-					peek = peek(connectedAddress);
-				} catch (Throwable fuckingThrowable){
-					
-				}
-				if(peek != -1){
-					peek = 1;
-				}
+	//Hopefully
+	@Override int dataAvailable() throws SocketException{
+		cli.System.Net.Sockets.Socket fd = getFD();
+		cli.System.Net.Sockets.Socket fd1 = getFD1();
+		int rv = -1;
+		int rv1 = -1;
+		int[] retptr = new int[1];
+		retptr[0] = 0;
+		if (fd != null) {
+			rv = ioctlsocket(fd, FIONREAD, retptr);
+			int retval = retptr[0];
+			if (retval > 0) {
+				return retval;
 			}
 		}
-		return peek;
+		retptr[0] = 0;
+		if (fd1 != null) {
+			rv1 = ioctlsocket(fd1, FIONREAD, retptr);
+			int retval = retptr[0];
+			if (retval > 0) {
+				return retval;
+			}
+		}
+		if (rv < 0 && rv1 < 0) {
+			throw new SocketException("Socket Closed");
+		} else{
+			return 0;
+		}
 	}
 }

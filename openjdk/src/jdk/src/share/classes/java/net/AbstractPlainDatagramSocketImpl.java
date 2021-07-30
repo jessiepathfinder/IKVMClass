@@ -363,5 +363,5 @@ abstract class AbstractPlainDatagramSocketImpl extends DatagramSocketImpl
         return connectDisabled;
     }
 
-    abstract int dataAvailable();
+    abstract int dataAvailable() throws SocketException;
 }
