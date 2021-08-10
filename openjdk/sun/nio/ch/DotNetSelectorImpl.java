@@ -143,12 +143,12 @@ final class DotNetSelectorImpl extends SelectorImpl
             int microSeconds;
             if(timeout < 0 || timeout > Integer.MAX_VALUE || MinecraftMode.Enabled){
                 //bugfix
-                microSeconds = Integer.MAX_VALUE;
+                microSeconds = 0;
             } else{
                 microSeconds = (int)(1000L * timeout);
-                if((long) microSeconds != 1000L * timeout){
+                if(microSeconds / timeout != 1000){
                     //Value overflow!
-                    microSeconds = Integer.MAX_VALUE;
+                    microSeconds = 0;
                 }
             }
             
