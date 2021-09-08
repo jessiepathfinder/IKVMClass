@@ -969,19 +969,13 @@ public static class Java_java_io_WinNTFileSystem
 			// FXBUG we're appending the directory separator to work around an apparent .NET bug.
 			// If we don't do this, "c:\j\." would be canonicalized to "C:\"
 			// FIX AnotherFuckingBug: This stopped the Minecraft 1.13.2 server from running on IKVM.NET
-			int colon = 0;
-			if(path.Length > 2)
-			{
-				colon = path.IndexOf(':', 2);
-			}
-			if (colon > 0)
+			path = Path.GetFullPath(path);
+			int colon = path.IndexOf(':', 2);
+			if (colon != -1)
 			{
 				return CanonicalizePath(path.Substring(0, colon) + Path.DirectorySeparatorChar) + path.Substring(colon);
 			}
-			else
-			{
-				return CanonicalizePath(path + Path.DirectorySeparatorChar);
-			}
+			return CanonicalizePath(path + Path.DirectorySeparatorChar);
 		}
 		catch (ArgumentException x)
 		{
